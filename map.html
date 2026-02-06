@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bản đồ GIS - EcoSat HCMC</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+        font-family: 'Roboto', sans-serif;
+        font-size: 14px;
+        color: #212121;
+    }
+    
+    .navbar {
+        height: 64px;
+        background: #fff;
+        border-bottom: 1px solid #e0e0e0;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    
+    .nav-brand { display: flex; align-items: center; gap: 12px; }
+    .brand-text h1 { font-size: 1.25rem; font-weight: 500; }
+    .brand-text p { font-size: 0.75rem; color: #757575; }
+    
+    .map-container-wrapper {
+        display: flex;
+        height: calc(100vh - 64px);
+    }
+    
+    .sidebar {
+        width: 320px;
+        background: #fff;
+        border-right: 1px solid #e0e0e0;
+        overflow-y: auto;
+    }
+    
+    .sidebar-header {
+        padding: 16px;
+        border-bottom: 1px solid #e0e0e0;
+        background: #fafafa;
+    }
+    
+    .sidebar-header h2 {
+        font-size: 1.125rem;
+        font-weight: 500;
+    }
+    
+    .layer-group {
+        margin: 16px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+    }
+    
+    .layer-header {
+        padding: 12px;
+        background: #fafafa;
+        font-weight: 500;
+        font-size: 0.875rem;
+        cursor: pointer;
+    }
+    
+    .layer-items {
+        padding: 12px;
+    }
+    
+    .layer-item {
+        padding: 8px;
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .layer-item:hover {
+        background: #fafafa;
+        border-radius: 4px;
+    }
+    
+    .legend {
+        padding: 16px;
+        border-top: 1px solid #e0e0e0;
+        background: #fafafa;
+    }
+    
+    .legend h3 {
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 0.813rem;
+    }
+    
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+    }
+    
+    .map-main {
+        flex: 1;
+        position: relative;
+    }
+    
+    #map {
+        width: 100%;
+        height: 100%;
+    }
+    
+    .info-panel {
+        position: absolute;
+        bottom: 16px;
+        right: 16px;
+        width: 350px;
+        background: #fff;
+        border-radius: 4px;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+        display: none;
+    }
+    
+    .info-panel.active {
+        display: block;
+    }
+    
+    .info-header {
+        padding: 16px;
+        background: #1976d2;
+        color: #fff;
+        border-radius: 4px 4px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .info-header h3 {
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    
+    .close-btn {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: #fff;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.25rem;
+    }
+    
+    .info-content {
+        padding: 16px;
+    }
+    
+    .info-metrics {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 16px 0;
+    }
+    
+    .metric-card {
+        padding: 12px;
+        background: #fafafa;
+        border-radius: 4px;
+        text-align: center;
+    }
+    
+    .metric-label {
+        font-size: 0.75rem;
+        color: #757575;
+        margin-bottom: 4px;
+    }
+    
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: #212121;
+    }
+</style>
+</head>
+<body>
+<nav class="navbar">
+    <div class="nav-brand">
+        <div class="brand-text">
+            <h1>EcoSat HCMC - Bản đồ GIS</h1>
+            <p>Hệ thống giám sát môi trường</p>
+        </div>
+    </div>
+</nav>
+
+<div class="map-container-wrapper">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <h2>Lớp dữ liệu</h2>
+        </div>
+        
+        <div class="layer-group">
+            <div class="layer-header">Chất lượng không khí</div>
+            <div class="layer-items">
+                <label class="layer-item">
+                    <input type="radio" name="air" checked>
+                    <span>AQI Index</span>
+                </label>
+                <label class="layer-item">
+                    <input type="radio" name="air">
+                    <span>PM2.5</span>
+                </label>
+                <label class="layer-item">
+                    <input type="radio" name="air">
+                    <span>PM10</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="layer-group">
+            <div class="layer-header">Thực vật & Đất</div>
+            <div class="layer-items">
+                <label class="layer-item">
+                    <input type="radio" name="veg" checked>
+                    <span>NDVI (Chỉ số thực vật)</span>
+                </label>
+                <label class="layer-item">
+                    <input type="radio" name="veg">
+                    <span>NDWI (Chỉ số nước)</span>
+                </label>
+                <label class="layer-item">
+                    <input type="radio" name="veg">
+                    <span>NDBI (Chỉ số đô thị)</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <h3>Chú giải AQI</h3>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #4caf50;"></span>
+                <span>Tốt (0-50)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #ffeb3b;"></span>
+                <span>Trung bình (51-100)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #ff9800;"></span>
+                <span>Kém (101-150)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: #f44336;"></span>
+                <span>Xấu (151-200)</span>
+            </div>
+        </div>
+    </aside>
+    
+    <div class="map-main">
+        <div id="map"></div>
+        
+        <div class="info-panel" id="infoPanel">
+            <div class="info-header">
+                <h3>Thông tin điểm quan trắc</h3>
+                <button class="close-btn" onclick="closeInfo()">×</button>
+            </div>
+            <div class="info-content">
+                <h4 id="stationName">Trạm quan trắc</h4>
+                <div class="info-metrics">
+                    <div class="metric-card">
+                        <div class="metric-label">AQI</div>
+                        <div class="metric-value" id="aqiValue">68</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">PM2.5</div>
+                        <div class="metric-value" id="pm25Value">24</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">PM10</div>
+                        <div class="metric-value" id="pm10Value">42</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">O₃</div>
+                        <div class="metric-value" id="o3Value">35</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Initialize map
+    const map = L.map('map').setView([10.8231, 106.6297], 11);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+    
+    // Sample stations
+    const stations = [
+        { name: 'Quận 1', lat: 10.7756, lng: 106.7019, aqi: 68, pm25: 24, pm10: 42, o3: 35 },
+        { name: 'Quận 3', lat: 10.7864, lng: 106.6897, aqi: 52, pm25: 18, pm10: 35, o3: 28 },
+        { name: 'Quận 5', lat: 10.7563, lng: 106.6669, aqi: 94, pm25: 38, pm10: 65, o3: 45 },
+        { name: 'Quận 7', lat: 10.7325, lng: 106.7212, aqi: 45, pm25: 15, pm10: 28, o3: 22 },
+        { name: 'Thủ Đức', lat: 10.8509, lng: 106.7717, aqi: 112, pm25: 45, pm10: 78, o3: 52 },
+        { name: 'Bình Thạnh', lat: 10.8145, lng: 106.7054, aqi: 58, pm25: 21, pm10: 39, o3: 30 }
+    ];
+    
+    stations.forEach(station => {
+        const color = station.aqi <= 50 ? '#4caf50' :
+                        station.aqi <= 100 ? '#ffeb3b' : '#ff9800';
+        
+        const marker = L.circleMarker([station.lat, station.lng], {
+            radius: 10,
+            fillColor: color,
+            color: '#fff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        }).addTo(map);
+        
+        marker.on('click', function() {
+            showInfo(station);
+        });
+        
+        marker.bindPopup(`<b>${station.name}</b><br>AQI: ${station.aqi}`);
+    });
+    
+    function showInfo(station) {
+        document.getElementById('infoPanel').classList.add('active');
+        document.getElementById('stationName').textContent = `Trạm ${station.name}`;
+        document.getElementById('aqiValue').textContent = station.aqi;
+        document.getElementById('pm25Value').textContent = station.pm25;
+        document.getElementById('pm10Value').textContent = station.pm10;
+        document.getElementById('o3Value').textContent = station.o3;
+    }
+    
+    function closeInfo() {
+        document.getElementById('infoPanel').classList.remove('active');
+    }
+</script>
+</body>
+</html>
