@@ -1,0 +1,445 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phân Tích – WebGIS Môi Trường TP.HCM</title>
+<link rel="stylesheet" href="{% static 'webgis/css/base.css' %}">
+<link rel="stylesheet" href="{% static 'webgis/css/analysis.css' %}">
+<style>
+.insight-box {
+  background: linear-gradient(135deg, rgba(0,180,216,0.06), rgba(0,119,182,0.04));
+  border: 1.5px solid rgba(0,180,216,0.18);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 20px 24px;
+}
+.insight-box-title {
+  font-size: 13px; font-weight: 700; color: #023E8A;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+}
+.insight-items { display: flex; flex-direction: column; gap: 8px; }
+.insight-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 12px;
+  border-left: 3px solid #00B4D8;
+  background: rgba(255,255,255,0.7);
+  border-radius: 0 8px 8px 0;
+  font-size: 12px; color: #03045E; line-height: 1.5;
+}
+.corr-section {
+  margin: 0 24px 20px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.corr-card {
+  background: #fff;
+  border: 1.5px solid rgba(0,180,216,0.15);
+  border-radius: 12px;
+  padding: 16px;
+}
+.corr-card-title {
+  font-size: 12px; font-weight: 700; color: #023E8A;
+  margin-bottom: 12px;
+}
+.district-section {
+  margin: 0 24px 20px;
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+<a href="{% url 'home' %}" class="nav-logo">
+<div class="nav-logo-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+<circle cx="12" cy="12" r="10"/>
+<path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+</svg>
+</div>
+<div class="nav-logo-text">HHL<span>Giám sát môi trường đô thị</span></div>
+</a>
+<nav class="nav-menu">
+<a href="{% url 'home' %}" class="nav-link">Bản Đồ</a>
+<a href="{% url 'analysis' %}" class="nav-link active">Phân Tích</a>
+<a href="{% url 'alert' %}" class="nav-link">Cảnh Báo</a>
+<a href="{% url 'report' %}" class="nav-link">Báo Cáo</a>
+<a href="{% url 'forecast' %}" class="nav-link">Dự Báo</a>
+<a href="{% url 'feedback' %}" class="nav-link">Góp Ý</a>
+<a href="{% url 'about' %}" class="nav-link">Giới Thiệu</a>
+</nav>
+<div class="nav-right">
+{% if user.is_authenticated %}
+<a href="{% url 'dashboard' %}" style="text-decoration:none;">
+<div class="nav-user">
+<div class="nav-avatar">{{ user.username|first|upper }}</div>
+<span class="nav-username">{{ user.username }}</span>
+</div>
+</a>
+{% if user.profile.is_admin %}
+<a href="{% url 'dashboard' %}" class="nav-btn-login">Dashboard</a>
+{% else %}
+<form method="POST" action="{% url 'logout' %}" style="margin:0">
+{% csrf_token %}
+<button type="submit" class="nav-btn-logout">Đăng xuất</button>
+</form>
+{% endif %}
+{% endif %}
+</div>
+</nav>
+
+<div class="page-header">
+<div>
+<div class="page-title">Phân Tích <span>Môi Trường</span></div>
+<div class="page-subtitle">Dữ liệu lịch sử · Tương quan · So sánh quận — GEE · Sentinel · Landsat · OpenWeather</div>
+</div>
+<div class="days-filter">
+<button class="day-btn active" onclick="loadData(1, this)">1 ngày</button>
+<button class="day-btn" onclick="loadData(7, this)">7 ngày</button>
+<button class="day-btn" onclick="loadData(30, this)">30 ngày</button>
+</div>
+</div>
+
+<div class="summary-grid">
+<div class="summary-card">
+<div class="summary-card-header">
+<div class="summary-card-icon" style="background:rgba(255,214,10,0.12)">💨</div>
+<span class="summary-card-badge" style="background:rgba(255,214,10,0.12);color:#d4a800">AQI</span>
+</div>
+<div class="summary-card-value" style="color:#FFD60A" id="sumAqi">--</div>
+<div class="summary-card-label">AQI Trung Bình</div>
+<div class="summary-card-trend" id="sumAqiTrend" style="color:#90B8D4">Đang tải...</div>
+</div>
+<div class="summary-card">
+<div class="summary-card-header">
+<div class="summary-card-icon" style="background:rgba(239,35,60,0.1)">🌫</div>
+<span class="summary-card-badge" style="background:rgba(239,35,60,0.1);color:#EF233C">PM2.5</span>
+</div>
+<div class="summary-card-value" style="color:#EF233C" id="sumPm25">--</div>
+<div class="summary-card-label">PM2.5 µg/m³</div>
+<div class="summary-card-trend" id="sumPm25Trend" style="color:#90B8D4">Đang tải...</div>
+</div>
+<div class="summary-card">
+<div class="summary-card-header">
+<div class="summary-card-icon" style="background:rgba(255,107,107,0.1)">🌡</div>
+<span class="summary-card-badge" style="background:rgba(255,107,107,0.1);color:#FF6B6B">LST</span>
+</div>
+<div class="summary-card-value" style="color:#FF6B6B" id="sumLst">--</div>
+<div class="summary-card-label">Nhiệt bề mặt (°C)</div>
+<div class="summary-card-trend" id="sumLstTrend" style="color:#90B8D4">Đang tải...</div>
+</div>
+<div class="summary-card">
+<div class="summary-card-header">
+<div class="summary-card-icon" style="background:rgba(6,214,160,0.1)">🌿</div>
+<span class="summary-card-badge" style="background:rgba(6,214,160,0.1);color:#06D6A0">NDVI</span>
+</div>
+<div class="summary-card-value" style="color:#06D6A0" id="sumNdvi">--</div>
+<div class="summary-card-label">NDVI Trung Bình</div>
+<div class="summary-card-trend" id="sumNdviTrend" style="color:#90B8D4">Đang tải...</div>
+</div>
+</div>
+
+<!-- CHARTS CHÍNH -->
+<div class="charts-grid">
+<div class="chart-card wide">
+<div class="chart-card-header">
+<div>
+<div class="chart-card-title">💨 Chất lượng không khí</div>
+<div class="chart-card-sub">PM2.5 · NO₂ — Nguồn: OpenWeather + Sentinel-5P</div>
+</div>
+<div class="chart-card-meta">
+<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#EF233C;display:inline-block;border-radius:2px"></span>PM2.5</span>
+<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#00B4D8;display:inline-block;border-radius:2px"></span>NO₂</span>
+</div>
+</div>
+<div class="chart-wrap tall" style="position:relative">
+<div class="loading-overlay" id="loadingAir">⏳ Đang tải...</div>
+<canvas id="chartAir"></canvas>
+</div>
+</div>
+
+<div class="chart-card">
+<div class="chart-card-header">
+<div>
+<div class="chart-card-title">🌡 Nhiệt bề mặt (LST)</div>
+<div class="chart-card-sub">Landsat 8/9 — °C</div>
+</div>
+</div>
+<div class="chart-wrap" style="position:relative">
+<div class="loading-overlay" id="loadingLst">⏳ Đang tải...</div>
+<canvas id="chartLst"></canvas>
+</div>
+</div>
+
+<div class="chart-card">
+<div class="chart-card-header">
+<div>
+<div class="chart-card-title">🌿 Chỉ số thực vật (NDVI)</div>
+<div class="chart-card-sub">Sentinel-2 — NDVI</div>
+</div>
+</div>
+<div class="chart-wrap" style="position:relative">
+<div class="loading-overlay" id="loadingNdvi">⏳ Đang tải...</div>
+<canvas id="chartNdvi"></canvas>
+</div>
+</div>
+</div>
+
+<!-- TƯƠNG QUAN NDVI ↔ LST -->
+<div class="corr-section">
+<div class="corr-card">
+<div class="corr-card-title">🔗 Tương quan NDVI ↔ LST (Cây xanh — Nhiệt đô thị)</div>
+<div style="position:relative;height:220px">
+<canvas id="chartCorr"></canvas>
+</div>
+<div style="font-size:11px;color:#90B8D4;margin-top:8px;text-align:center" id="corrNote">
+NDVI càng cao → LST càng thấp (nhiều cây xanh = mát hơn)
+</div>
+</div>
+
+<div class="corr-card">
+<div class="corr-card-title">📊 So sánh AQI theo quận (OpenWeather)</div>
+<div style="position:relative;height:220px">
+<canvas id="chartDistrict"></canvas>
+</div>
+</div>
+</div>
+
+<!-- NHẬN ĐỊNH TỰ ĐỘNG -->
+<div class="insight-box" id="insightBox">
+<div class="insight-box-title">🤖 Nhận định tự động từ hệ thống</div>
+<div class="insight-items" id="insightItems">
+<div style="color:#90B8D4;font-size:12px">Đang phân tích dữ liệu...</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "'DM Sans', 'Segoe UI', sans-serif";
+Chart.defaults.color = '#90B8D4';
+
+const chartOptions = (yLabel) => ({
+responsive: true, maintainAspectRatio: false,
+interaction: { mode: 'index', intersect: false },
+plugins: {
+legend: { display: false },
+tooltip: { backgroundColor: 'rgba(255,255,255,0.95)', titleColor: '#03045E', bodyColor: '#5A8DB8', borderColor: 'rgba(0,180,216,0.2)', borderWidth: 1, padding: 10, cornerRadius: 8 }
+},
+scales: {
+x: { grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 10 }, maxTicksLimit: 8 } },
+y: { grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 10 } }, title: { display: !!yLabel, text: yLabel, color: '#90B8D4', font: { size: 10 } } }
+}
+});
+
+let charts = {};
+
+// Data quận — tải từ API thật
+let districtData = [];
+
+async function loadDistrictCharts() {
+try {
+    const json = await (await fetch('/api/districts/')).json();
+    if (!json.success || !json.districts.length) return;
+    districtData = json.districts;
+} catch(e) {
+    // Fallback nếu API lỗi
+    districtData = [
+    { name: 'Quận 1', pm25: 42, aqi: 95, ndvi: 0.18, lst: 38.5 },
+    { name: 'Quận 7', pm25: 30, aqi: 72, ndvi: 0.35, lst: 36.2 },
+    { name: 'Bình Chánh', pm25: 58, aqi: 142, ndvi: 0.31, lst: 39.8 },
+    { name: 'Thủ Đức', pm25: 28, aqi: 71, ndvi: 0.42, lst: 35.8 },
+    { name: 'Cần Giờ', pm25: 14, aqi: 42, ndvi: 0.71, lst: 32.1 },
+    ];
+}
+
+// Cập nhật scatter NDVI vs LST
+charts.corr.data.datasets[0].data = districtData.map(d => ({ x: d.ndvi || 0.3, y: d.lst || 36, label: d.name }));
+charts.corr.data.datasets[0].backgroundColor = districtData.map(d => {
+    const lst = d.lst || 36;
+    return lst > 38 ? 'rgba(239,35,60,0.7)' : lst > 36 ? 'rgba(255,154,60,0.7)' : 'rgba(6,214,160,0.7)';
+});
+charts.corr.update();
+
+// Cập nhật bar AQI
+charts.district.data.labels = districtData.map(d => d.name.replace('Quận ','Q.'));
+charts.district.data.datasets[0].data = districtData.map(d => d.aqi);
+charts.district.data.datasets[0].backgroundColor = districtData.map(d =>
+    d.color || '#00B4D8'
+);
+charts.district.update();
+}
+
+function initCharts() {
+charts.air = new Chart(document.getElementById('chartAir').getContext('2d'), {
+type: 'line',
+data: { labels: [], datasets: [
+    { label: 'PM2.5', data: [], borderColor: '#EF233C', backgroundColor: 'rgba(239,35,60,0.08)', borderWidth: 2, pointRadius: 3, tension: 0.4, fill: true },
+    { label: 'NO₂',   data: [], borderColor: '#00B4D8', backgroundColor: 'rgba(0,180,216,0.08)', borderWidth: 2, pointRadius: 3, tension: 0.4, fill: false },
+]},
+options: chartOptions('µg/m³')
+});
+charts.lst = new Chart(document.getElementById('chartLst').getContext('2d'), {
+type: 'line',
+data: { labels: [], datasets: [
+    { label: 'LST', data: [], borderColor: '#FF6B6B', backgroundColor: 'rgba(255,107,107,0.1)', borderWidth: 2, pointRadius: 3, tension: 0.4, fill: true },
+]},
+options: chartOptions('°C')
+});
+charts.ndvi = new Chart(document.getElementById('chartNdvi').getContext('2d'), {
+type: 'line',
+data: { labels: [], datasets: [
+    { label: 'NDVI', data: [], borderColor: '#06D6A0', backgroundColor: 'rgba(6,214,160,0.1)', borderWidth: 2, pointRadius: 3, tension: 0.4, fill: true },
+]},
+options: chartOptions('')
+});
+
+// Scatter: NDVI vs LST — data rỗng ban đầu, tải sau
+charts.corr = new Chart(document.getElementById('chartCorr').getContext('2d'), {
+type: 'scatter',
+data: { datasets: [{
+    label: 'Quận',
+    data: [],
+    backgroundColor: [],
+    pointRadius: 7, pointHoverRadius: 9,
+}]},
+options: {
+responsive: true, maintainAspectRatio: false,
+plugins: {
+    legend: { display: false },
+    tooltip: { callbacks: { label: (ctx) => `${ctx.raw.label}: NDVI=${ctx.raw.x}, LST=${ctx.raw.y}°C` },
+    backgroundColor: '#fff', titleColor: '#03045E', bodyColor: '#5A8DB8', borderColor: 'rgba(0,180,216,0.2)', borderWidth: 1, padding: 10, cornerRadius: 8 }
+},
+scales: {
+    x: { title: { display: true, text: 'NDVI (Thảm thực vật)', color: '#90B8D4', font: { size: 10 } }, grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 10 } } },
+    y: { title: { display: true, text: 'LST (°C)', color: '#90B8D4', font: { size: 10 } }, grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 10 } } }
+}
+}
+});
+
+// Bar: AQI theo quận — data rỗng ban đầu
+charts.district = new Chart(document.getElementById('chartDistrict').getContext('2d'), {
+type: 'bar',
+data: { labels: [], datasets: [{ label: 'AQI', data: [], backgroundColor: [], borderRadius: 6, borderSkipped: false }] },
+options: {
+responsive: true, maintainAspectRatio: false,
+plugins: { legend: { display: false }, tooltip: { backgroundColor: '#fff', titleColor: '#03045E', bodyColor: '#5A8DB8', borderColor: 'rgba(0,180,216,0.2)', borderWidth: 1, padding: 8, cornerRadius: 8 } },
+scales: {
+x: { grid: { display: false }, ticks: { color: '#90B8D4', font: { size: 9 } } },
+y: { grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 10 } }, min: 0 }
+}
+}
+});
+}
+
+function avg(arr) {
+if (!arr.length) return '--';
+return (arr.reduce((a,b) => a+b, 0) / arr.length).toFixed(2);
+}
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+function noData(canvasId, loadingId) {
+document.getElementById(loadingId).style.display = 'none';
+const wrap = document.getElementById(canvasId).parentElement;
+const d = document.createElement('div');
+d.className = 'no-data';
+d.innerHTML = '<div class="no-data-icon">📭</div><div>Chưa có dữ liệu lịch sử</div><div style="font-size:11px">Dữ liệu tích lũy sau mỗi lần tải layer</div>';
+wrap.appendChild(d);
+}
+
+function buildInsights(pm25, lst, ndvi, aqi) {
+const items = [];
+// AQI
+if (aqi > 150) items.push({ icon:'🔴', text:`AQI ${aqi} — Mức xấu, ảnh hưởng sức khỏe toàn dân số. Hạn chế ra ngoài.`, color:'#EF233C' });
+else if (aqi > 100) items.push({ icon:'🟡', text:`AQI ${aqi} — Trung bình, nhóm nhạy cảm nên hạn chế hoạt động ngoài trời.`, color:'#FFD60A' });
+else items.push({ icon:'✅', text:`AQI ${aqi} — Chất lượng không khí tốt, an toàn cho hoạt động ngoài trời.`, color:'#06D6A0' });
+
+// PM2.5
+if (pm25 > 25) items.push({ icon:'⚠️', text:`PM2.5 ${pm25} µg/m³ vượt ngưỡng WHO (25 µg/m³). Cần theo dõi liên tục.`, color:'#EF233C' });
+else items.push({ icon:'✅', text:`PM2.5 ${pm25} µg/m³ trong ngưỡng an toàn WHO.`, color:'#06D6A0' });
+
+// LST
+if (lst > 40) items.push({ icon:'🌡', text:`LST ${lst}°C — Đảo nhiệt đô thị mức cao. Khu vực ít cây xanh cần can thiệp.`, color:'#EF233C' });
+else if (lst > 35) items.push({ icon:'🌡', text:`LST ${lst}°C — Đảo nhiệt đô thị trung bình. Cần tăng cường mảng xanh.`, color:'#FF9A3C' });
+else items.push({ icon:'🌡', text:`LST ${lst}°C — Nhiệt bề mặt bình thường.`, color:'#90B8D4' });
+
+// NDVI-LST tương quan
+if (ndvi < 0.2 && lst > 37) items.push({ icon:'🔗', text:`Tương quan rõ: NDVI thấp (${ndvi}) đi kèm LST cao (${lst}°C). Thiếu cây xanh là nguyên nhân chính gây UHI.`, color:'#FF6B6B' });
+else if (ndvi > 0.4) items.push({ icon:'🌿', text:`NDVI ${ndvi} — Mảng xanh tốt, góp phần làm mát đô thị và cải thiện không khí.`, color:'#06D6A0' });
+
+document.getElementById('insightItems').innerHTML = items.map(i =>
+`<div class="insight-item" style="border-left-color:${i.color}"><span>${i.icon}</span><span>${i.text}</span></div>`
+).join('');
+}
+
+async function loadData(days, btn) {
+document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
+if (btn) btn.classList.add('active');
+Object.values(charts).forEach(c => {
+if (c.config.type === 'line') {
+    c.data.labels = [];
+    c.data.datasets.forEach(d => d.data = []);
+    c.update();
+}
+});
+['loadingAir','loadingLst','loadingNdvi'].forEach(id => {
+const el = document.getElementById(id);
+if (el) { el.style.display = 'flex'; el.textContent = '⏳ Đang tải...'; }
+});
+document.querySelectorAll('.no-data').forEach(el => el.remove());
+
+let pm25Val = '--', lstVal = '--', ndviVal = '--', aqiVal = '--';
+
+try {
+const json = await (await fetch(`/api/analysis/?days=${days}`)).json();
+if (!json.success) return;
+
+if (json.air && json.air.length > 0) {
+    charts.air.data.labels = json.air.map(r => r.time);
+    charts.air.data.datasets[0].data = json.air.map(r => r.pm25);
+    charts.air.data.datasets[1].data = json.air.map(r => r.no2);
+    charts.air.update();
+    pm25Val = avg(json.air.map(r => r.pm25).filter(Boolean));
+    setText('sumPm25', pm25Val);
+    setText('sumPm25Trend', `NO₂: ${avg(json.air.map(r => r.no2).filter(Boolean))} µg/m³`);
+    document.getElementById('loadingAir').style.display = 'none';
+} else { noData('chartAir', 'loadingAir'); }
+
+if (json.uhi && json.uhi.length > 0) {
+    charts.lst.data.labels = json.uhi.map(r => r.time);
+    charts.lst.data.datasets[0].data = json.uhi.map(r => r.lst);
+    charts.lst.update();
+    charts.ndvi.data.labels = json.uhi.map(r => r.time);
+    charts.ndvi.data.datasets[0].data = json.uhi.map(r => r.ndvi);
+    charts.ndvi.update();
+    lstVal  = avg(json.uhi.map(r => r.lst).filter(Boolean));
+    ndviVal = avg(json.uhi.map(r => r.ndvi).filter(Boolean));
+    setText('sumLst', lstVal + '°');
+    setText('sumNdvi', ndviVal);
+    setText('sumLstTrend', json.uhi.length + ' điểm đo');
+    setText('sumNdviTrend', 'Sentinel-2 · ' + json.uhi.length + ' điểm');
+    document.getElementById('loadingLst').style.display  = 'none';
+    document.getElementById('loadingNdvi').style.display = 'none';
+} else { noData('chartLst', 'loadingLst'); noData('chartNdvi', 'loadingNdvi'); }
+
+try {
+    const wJson = await (await fetch('/api/weather/')).json();
+    if (wJson.success && wJson.air && !wJson.air.error) {
+    aqiVal = wJson.air.aqi;
+    setText('sumAqi', aqiVal);
+    const level = ['', 'Tốt', 'Khá', 'Trung bình', 'Kém', 'Rất kém'];
+    setText('sumAqiTrend', level[wJson.air.aqi_level] || '');
+    if (pm25Val === '--') pm25Val = wJson.air.pm25;
+    }
+} catch(e) {}
+
+buildInsights(pm25Val, lstVal, ndviVal, aqiVal);
+
+} catch(e) { console.error('Analysis API error:', e); }
+}
+
+initCharts();
+loadDistrictCharts();
+loadData(1, document.querySelector('.day-btn.active'));
+</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+    {% load static %}
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cảnh Báo – WebGIS Môi Trường TP.HCM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'webgis/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'webgis/css/alert.css' %}">
+    <style>
+    .risk-section { margin-top: 24px; }
+    .risk-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .risk-table th {
+    padding:8px 10px; text-align:left;
+    font-size:10px; font-weight:700; color:#90B8D4;
+    text-transform:uppercase; border-bottom:1.5px solid rgba(0,180,216,0.1);
+    }
+    .risk-table td { padding:9px 10px; border-bottom:1px solid rgba(0,180,216,0.06); }
+    .risk-table tr:last-child td { border-bottom:none; }
+    .risk-chip {
+    font-size:10px; font-weight:700; padding:3px 10px;
+    border-radius:10px; display:inline-block;
+    }
+    .cause-list { font-size:11px; color:#5A8DB8; line-height:1.6; }
+    .rec-list   { font-size:11px; color:#023E8A; line-height:1.6; }
+
+    /* Form đề xuất */
+    .proposal-modal {
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(3,4,94,0.4); backdrop-filter:blur(4px);
+    align-items:center; justify-content:center;
+    }
+    .proposal-modal.open { display:flex; }
+    .proposal-box {
+    background:#fff; border-radius:16px;
+    padding:28px 32px; width:520px; max-width:95vw;
+    box-shadow:0 20px 60px rgba(0,180,216,0.2);
+    border:1.5px solid rgba(0,180,216,0.15);
+    }
+    .proposal-title {
+    font-family:'Syne',sans-serif; font-size:16px; font-weight:700;
+    color:#03045E; margin-bottom:4px;
+    }
+    .proposal-sub { font-size:12px; color:#90B8D4; margin-bottom:20px; }
+    .p-field { margin-bottom:14px; }
+    .p-label { display:block; font-size:12px; font-weight:600; color:#5A8DB8; margin-bottom:5px; }
+    .p-input, .p-select, .p-textarea {
+    width:100%; padding:10px 12px;
+    border:1.5px solid rgba(0,180,216,0.2); border-radius:9px;
+    font-size:13px; color:#023E8A; font-family:inherit;
+    outline:none; transition:border 0.2s; box-sizing:border-box;
+    background:#F8FCFE;
+    }
+    .p-input:focus, .p-select:focus, .p-textarea:focus {
+    border-color:#00B4D8; background:#fff;
+    }
+    .p-textarea { resize:vertical; min-height:90px; }
+    .p-footer { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+    .p-cancel {
+    padding:9px 20px; background:rgba(0,180,216,0.08);
+    border:1.5px solid rgba(0,180,216,0.2); border-radius:9px;
+    font-size:13px; font-weight:600; color:#5A8DB8; cursor:pointer;
+    }
+    .p-submit {
+    padding:9px 20px;
+    background:linear-gradient(135deg,#00B4D8,#0077B6);
+    border:none; border-radius:9px;
+    font-size:13px; font-weight:700; color:#fff; cursor:pointer;
+    box-shadow:0 3px 12px rgba(0,180,216,0.3);
+    }
+    .p-submit:hover { transform:translateY(-1px); }
+    .propose-btn {
+    margin-top:10px; padding:7px 14px;
+    background:rgba(0,180,216,0.08);
+    border:1.5px solid rgba(0,180,216,0.25);
+    border-radius:8px; font-size:12px; font-weight:600;
+    color:#0077B6; cursor:pointer; transition:all 0.2s;
+    }
+    .propose-btn:hover { background:rgba(0,180,216,0.15); }
+    </style>
+    </head>
+    <body>
+
+    <nav class="navbar">
+    <a href="{% url 'home' %}" class="nav-logo">
+    <div class="nav-logo-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+    </div>
+    <div class="nav-logo-text">HHL<span>Giám sát môi trường đô thị</span></div>
+    </a>
+    <nav class="nav-menu">
+    <a href="{% url 'home' %}" class="nav-link">Bản Đồ</a>
+    <a href="{% url 'analysis' %}" class="nav-link">Phân Tích</a>
+    <a href="{% url 'alert' %}" class="nav-link active">Cảnh Báo</a>
+    <a href="{% url 'report' %}" class="nav-link">Báo Cáo</a>
+    <a href="{% url 'forecast' %}" class="nav-link">Dự Báo</a>
+    <a href="{% url 'feedback' %}" class="nav-link">Góp Ý</a>
+    <a href="{% url 'about' %}" class="nav-link">Giới Thiệu</a>
+    </nav>
+    <div class="nav-right">
+    {% if user.is_authenticated %}
+    <a href="{% url 'dashboard' %}" style="text-decoration:none;">
+    <div class="nav-user">
+        <div class="nav-avatar">{{ user.username|first|upper }}</div>
+        <span class="nav-username">{{ user.username }}</span>
+    </div>
+    </a>
+    {% if user.profile.is_admin %}
+    <a href="{% url 'dashboard' %}" class="nav-btn-login">Dashboard</a>
+    {% else %}
+    <form method="POST" action="{% url 'logout' %}" style="margin:0">
+        {% csrf_token %}
+        <button type="submit" class="nav-btn-logout">Đăng xuất</button>
+    </form>
+    {% endif %}
+    {% endif %}
+    </div>
+    </nav>
+{% if messages %}
+<div class="message-wrap">
+    {% for message in messages %}
+        <div class="flash-message {{ message.tags }}">
+            {{ message }}
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+    <div class="page-header">
+    <div>
+    <div class="page-title">Cảnh Báo <span>& Quản Lý Rủi Ro</span></div>
+    <div class="page-subtitle">Cảnh báo tự động · Phân loại rủi ro · Đề xuất giải pháp</div>
+    </div>
+    <div class="alert-count-badge" id="alertCount">
+    <span id="alertCountNum">--</span> cảnh báo đang hoạt động
+    </div>
+    </div>
+
+    <div class="alert-layout">
+
+    <div class="alert-main">
+
+    <!-- Cảnh báo tự động -->
+    <div class="section-title">
+    🤖 Cảnh báo tự động
+    <span class="section-badge">Từ GEE · OpenWeather</span>
+    </div>
+    <div id="autoAlerts">
+    <div class="loading-row">⏳ Đang kiểm tra dữ liệu thật...</div>
+    </div>
+
+    <!-- Bảng rủi ro quận -->
+    <div class="risk-section">
+    <div class="section-title" style="margin-top:24px">
+        ⚠️ Phân loại rủi ro môi trường theo quận
+        <span class="section-badge">AQI + LST + NDVI</span>
+    </div>
+    <div id="riskTable">
+        <div class="loading-row">⏳ Đang tính toán rủi ro...</div>
+    </div>
+    </div>
+
+    </div>
+
+    <div class="alert-sidebar">
+
+    <div class="sidebar-card">
+    <div class="sidebar-card-title">📊 Tóm tắt rủi ro</div>
+    <div class="summary-row"><span class="summary-dot danger"></span><span class="summary-label">Nguy hiểm</span><span class="summary-val" id="countCritical">--</span></div>
+    <div class="summary-row"><span class="summary-dot warning"></span><span class="summary-label">Cao</span><span class="summary-val" id="countHigh">--</span></div>
+    <div class="summary-row"><span class="summary-dot" style="background:#FFD60A"></span><span class="summary-label">Trung bình</span><span class="summary-val" id="countMedium">--</span></div>
+    <div class="summary-row"><span class="summary-dot info"></span><span class="summary-label">Thấp</span><span class="summary-val" id="countLow">--</span></div>
+    </div>
+
+    <div class="sidebar-card">
+    <div class="sidebar-card-title">📡 Số liệu hiện tại</div>
+    <div class="realtime-item"><span class="realtime-label">AQI</span><span class="realtime-val" id="rtAqi">--</span></div>
+    <div class="realtime-item"><span class="realtime-label">PM2.5</span><span class="realtime-val" id="rtPm25">-- µg/m³</span></div>
+    <div class="realtime-item"><span class="realtime-label">NO₂</span><span class="realtime-val" id="rtNo2">-- µg/m³</span></div>
+    <div class="realtime-item"><span class="realtime-label">Nhiệt độ</span><span class="realtime-val" id="rtTemp">--°C</span></div>
+    <div class="realtime-item"><span class="realtime-label">Độ ẩm</span><span class="realtime-val" id="rtHumidity">--%</span></div>
+    <div style="font-size:10px;color:#90B8D4;margin-top:8px;text-align:right" id="rtTime">--</div>
+    </div>
+
+    <div class="sidebar-card">
+    <div class="sidebar-card-title">⚠️ Ngưỡng cảnh báo</div>
+    <div class="threshold-item"><span>AQI > 100</span><span style="color:#FFD60A">⚠ Cảnh báo</span></div>
+    <div class="threshold-item"><span>AQI > 150</span><span style="color:#EF233C">🔴 Nguy hiểm</span></div>
+    <div class="threshold-item"><span>PM2.5 > 25 µg/m³</span><span style="color:#FFD60A">⚠ WHO</span></div>
+    <div class="threshold-item"><span>LST > 38°C</span><span style="color:#FF9A3C">🌡 UHI TB</span></div>
+    <div class="threshold-item"><span>LST > 40°C</span><span style="color:#EF233C">🌡 UHI cao</span></div>
+    <div class="threshold-item"><span>NDVI < 0.2</span><span style="color:#EF233C">🌿 Thiếu xanh</span></div>
+    </div>
+
+    </div>
+    </div>
+
+    <!-- MODAL ĐỀ XUẤT GIẢI PHÁP -->
+    <div class="proposal-modal" id="proposalModal">
+    <div class="proposal-box">
+    <div class="proposal-title">💡 Đề xuất giải pháp</div>
+    <div class="proposal-sub" id="proposalContext">Đề xuất giải pháp cho vấn đề môi trường</div>
+
+    <form method="POST" action="{% url 'submit_proposal' %}">
+    {% csrf_token %}
+    <input type="hidden" name="alert_type" id="pAlertType" value="">
+    <input type="hidden" name="district" id="pDistrict" value="">
+
+    <div class="p-field">
+        <label class="p-label">Khu vực *</label>
+        <input type="text" name="district_name" id="pDistrictName" class="p-input" placeholder="VD: Quận 1, Bình Chánh..." required>
+    </div>
+
+    <div class="p-field">
+        <label class="p-label">Loại vấn đề *</label>
+        <select name="problem_type" class="p-select">
+        <option value="aqi">💨 Ô nhiễm không khí (AQI cao)</option>
+        <option value="uhi">🌡 Đảo nhiệt đô thị (LST cao)</option>
+        <option value="ndvi">🌿 Thiếu cây xanh (NDVI thấp)</option>
+        <option value="combined">⚠️ Kết hợp nhiều yếu tố</option>
+        </select>
+    </div>
+
+    <div class="p-field">
+        <label class="p-label">Giải pháp đề xuất *</label>
+        <textarea name="solution" class="p-textarea" placeholder="Mô tả giải pháp cụ thể: trồng cây, quy hoạch lại, kiểm soát phương tiện..." required></textarea>
+    </div>
+
+    <div class="p-field">
+        <label class="p-label">Cơ sở khoa học / tài liệu tham khảo</label>
+        <textarea name="evidence" class="p-textarea" style="min-height:60px" placeholder="Dẫn chứng khoa học, nghiên cứu liên quan (nếu có)..."></textarea>
+    </div>
+
+    <div class="p-footer">
+        <button type="button" class="p-cancel" onclick="closeProposal()">Hủy</button>
+        <button type="submit" class="p-submit">📤 Gửi đề xuất</button>
+    </div>
+    </form>
+    </div>
+    </div>
+
+    <script>
+    function openProposal(context, alertType, district) {
+    document.getElementById('proposalContext').textContent = context;
+    document.getElementById('pAlertType').value   = alertType || '';
+    document.getElementById('pDistrict').value    = district  || '';
+    document.getElementById('pDistrictName').value = district || '';
+    document.getElementById('proposalModal').classList.add('open');
+    }
+    function closeProposal() {
+    document.getElementById('proposalModal').classList.remove('open');
+    }
+    document.getElementById('proposalModal').addEventListener('click', function(e) {
+    if (e.target === this) closeProposal();
+    });
+
+    async function loadAlerts() {
+    try {
+    const json = await (await fetch('/api/alert/')).json();
+    if (!json.success) return;
+    document.getElementById('alertCountNum').textContent = json.auto_alerts?.length || 0;
+
+    const autoEl = document.getElementById('autoAlerts');
+    if (json.auto_alerts && json.auto_alerts.length > 0) {
+        autoEl.innerHTML = json.auto_alerts.map(a => `
+        <div class="alert-card ${a.level}">
+        <div class="alert-card-left"><div class="alert-icon">${a.type==='air'?'💨':a.type==='uhi'?'🌡':'🌊'}</div></div>
+        <div class="alert-card-body">
+            <div class="alert-card-title">${a.title}</div>
+            <div class="alert-card-desc">${a.description}</div>
+            <div class="alert-card-meta">
+            <span>🤖 Tự động</span><span>Ngưỡng: ${a.threshold}</span><span>Giá trị: ${a.value}</span>
+            </div>
+            {% if user.is_authenticated %}
+            <button class="propose-btn" onclick="openProposal('${a.title}', '${a.type}', '')">
+            💡 Đề xuất giải pháp
+            </button>
+            {% endif %}
+        </div>
+        <div class="alert-card-badge-wrap">
+            <span class="alert-level-badge ${a.level}">
+            ${a.level==='danger'?'🔴 Nguy hiểm':a.level==='warning'?'🟡 Cảnh báo':'🔵 Thông tin'}
+            </span>
+        </div>
+        </div>`).join('');
+    } else {
+        autoEl.innerHTML = `<div class="alert-card info">
+        <div class="alert-card-left"><div class="alert-icon">✅</div></div>
+        <div class="alert-card-body">
+            <div class="alert-card-title">Môi trường bình thường</div>
+            <div class="alert-card-desc">Các chỉ số đang trong ngưỡng an toàn</div>
+        </div></div>`;
+    }
+    } catch(e) { console.warn('Alert API error:', e); }
+    }
+
+    async function loadRiskTable() {
+    try {
+    const json = await (await fetch('/api/risk/')).json();
+    if (!json.success) return;
+    const districts = json.districts;
+
+    // Đếm theo mức
+    document.getElementById('countCritical').textContent = districts.filter(d => d.risk_level==='critical').length;
+    document.getElementById('countHigh').textContent     = districts.filter(d => d.risk_level==='high').length;
+    document.getElementById('countMedium').textContent   = districts.filter(d => d.risk_level==='medium').length;
+    document.getElementById('countLow').textContent      = districts.filter(d => d.risk_level==='low').length;
+
+    // Bảng — chỉ hiện top 10 nguy hiểm nhất
+    const top = districts.slice(0, 15);
+    document.getElementById('riskTable').innerHTML = `
+        <table class="risk-table">
+        <thead><tr>
+        <th>Quận/Huyện</th><th>Điểm</th><th>Mức độ</th>
+        <th>Nguyên nhân chính</th><th>Đề xuất</th>
+        </tr></thead>
+        <tbody>${top.map(d => `
+        <tr>
+        <td><strong>${d.name}</strong></td>
+        <td><strong style="color:${d.risk_color}">${d.risk_score}</strong></td>
+        <td><span class="risk-chip" style="background:${d.risk_color}22;color:${d.risk_color}">${d.risk_label}</span></td>
+        <td><div class="cause-list">${(d.causes||[]).map(c=>`• ${c.msg}`).join('<br>')}</div></td>
+        <td>
+            <div class="rec-list" style="max-width:200px">${(d.recommendations||[]).slice(0,2).map(r=>`• ${r}`).join('<br>')}</div>
+            {% if user.is_authenticated %}
+            <button class="propose-btn" style="margin-top:6px"
+            onclick="openProposal('Rủi ro ${d.risk_label} tại ${d.name}', 'combined', '${d.name}')">
+            💡 Đề xuất
+            </button>
+            {% endif %}
+        </td>
+        </tr>`).join('')}
+        </tbody>
+        </table>`;
+    } catch(e) { console.warn('Risk API error:', e); }
+    }
+
+    async function loadRealtime() {
+    try {
+    const json = await (await fetch('/api/weather/')).json();
+    if (!json.success) return;
+    const air = json.air, w = json.weather;
+    if (!air.error) {
+        document.getElementById('rtAqi').textContent  = air.aqi;
+        document.getElementById('rtPm25').textContent = air.pm25 + ' µg/m³';
+        document.getElementById('rtNo2').textContent  = air.no2  + ' µg/m³';
+        document.getElementById('rtAqi').style.color  = air.aqi > 150 ? '#EF233C' : air.aqi > 100 ? '#FFD60A' : '#06D6A0';
+    }
+    if (!w.error) {
+        document.getElementById('rtTemp').textContent     = w.temp + '°C';
+        document.getElementById('rtHumidity').textContent = w.humidity + '%';
+    }
+    const now = new Date();
+    document.getElementById('rtTime').textContent = 'Cập nhật: ' +
+        String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    } catch(e) {}
+    }
+
+    loadAlerts();
+    loadRiskTable();
+    loadRealtime();
+    setInterval(loadRealtime, 5 * 60 * 1000);
+    </script>
+    </body>
+    </html>

@@ -1,0 +1,183 @@
+{% extends 'webgis/admin/base_admin.html' %}
+{% block title %}Quản lý người dùng{% endblock %}
+{% block breadcrumb %}Người dùng{% endblock %}
+
+{% block content %}
+<div class="page-header animate-up">
+<div>
+    <div class="page-title">👥 Quản lý người dùng</div>
+    <div class="page-subtitle">Thêm, sửa, xóa và phân quyền tài khoản</div>
+</div>
+<button class="btn btn-primary" onclick="openModal('modal-create')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Thêm người dùng
+</button>
+</div>
+
+<div class="table-card animate-up">
+<div class="table-header">
+    <div class="table-title">Danh sách tài khoản ({{ users|length }})</div>
+    <div class="table-search">
+    <input type="text" class="search-input" id="user-search" placeholder="🔍 Tìm theo tên, email...">
+    </div>
+</div>
+<table id="user-table">
+    <thead>
+    <tr>
+        <th>Người dùng</th>
+        <th>Vai trò</th>
+        <th>Tổ chức</th>
+        <th>Điện thoại</th>
+        <th>Ngày tạo</th>
+        <th>Trạng thái</th>
+        <th>Thao tác</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for u in users %}
+    <tr data-search="{{ u.username }} {{ u.email }} {{ u.profile.organization }}">
+        <td>
+        <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:36px;height:36px;background:linear-gradient(135deg,#00B4D8,#0077B6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">
+            {{ u.username|first|upper }}
+            </div>
+            <div>
+            <div style="font-weight:600;font-size:13px">{{ u.username }}</div>
+            <div style="font-size:11px;color:var(--text-muted)">{{ u.email|default:"Chưa có email" }}</div>
+            </div>
+        </div>
+        </td>
+        <td>
+        {% if u.profile.role == 'admin' %}
+            <span class="badge badge-admin">👑 Admin</span>
+            {% if u.profile.is_owner %}
+            <span class="badge" style="background:rgba(255,215,0,0.15);color:#B8860B;border:1px solid rgba(255,215,0,0.3)">⭐ Owner</span>
+            {% endif %}
+        {% elif u.profile.role == 'researcher' %}
+            <span class="badge badge-researcher">🔬 Nhà NC</span>
+        {% else %}
+            <span class="badge badge-viewer">👁️ Người xem</span>
+        {% endif %}
+        </td>
+        <td style="font-size:13px;color:var(--text-muted)">{{ u.profile.organization|default:"—" }}</td>
+        <td style="font-size:13px;color:var(--text-muted)">{{ u.profile.phone|default:"—" }}</td>
+        <td style="font-size:12px;color:var(--text-muted)">{{ u.date_joined|date:"d/m/Y" }}</td>
+        <td>
+        {% if u.is_active %}
+            <span class="badge badge-active">● Active</span>
+        {% else %}
+            <span class="badge badge-inactive">● Inactive</span>
+        {% endif %}
+        </td>
+        <td>
+        <div style="display:flex;gap:6px">
+            <a href="{% url 'admin_user_edit' u.id %}" class="btn btn-ghost btn-sm">✏️ Sửa</a>
+            {% if u != request.user %}
+                {% if u.profile.role != 'admin' or request.user.profile.is_owner %}
+                <button class="btn btn-danger btn-sm" onclick="confirmDelete('{% url 'admin_user_delete' u.id %}', '{{ u.username }}')">🗑️</button>
+                {% endif %}
+            {% endif %}
+        </div>
+        </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👤</div><p>Chưa có người dùng nào</p></div></td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<!-- Modal Tạo user -->
+<div class="modal-overlay" id="modal-create">
+<div class="modal">
+    <div class="modal-header">
+    <div class="modal-title">➕ Thêm người dùng mới</div>
+    <button class="modal-close" onclick="closeModal('modal-create')">×</button>
+    </div>
+    <div class="modal-body">
+    <form method="POST" action="{% url 'admin_user_create' %}">
+        {% csrf_token %}
+        <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">Tên đăng nhập *</label>
+            <input type="text" name="username" class="form-control" required placeholder="vd: nguyen_van_a">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" placeholder="email@example.com">
+        </div>
+        </div>
+        <div class="form-group">
+        <label class="form-label">Mật khẩu *</label>
+        <input type="password" name="password" class="form-control" required minlength="8" placeholder="Tối thiểu 8 ký tự">
+        </div>
+        <div class="form-row">
+        <div class="form-group">
+            <label class="form-label">Vai trò</label>
+            <select name="role" class="form-control">
+            <option value="viewer">👁️ Người xem</option>
+            <option value="researcher">🔬 Nhà nghiên cứu</option>
+            {% if request.user.profile.is_owner %}
+            <option value="admin">👑 Admin</option>
+            {% endif %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Điện thoại</label>
+            <input type="text" name="phone" class="form-control" placeholder="0901234567">
+        </div>
+        </div>
+        <div class="form-group">
+        <label class="form-label">Tổ chức / Đơn vị</label>
+        <input type="text" name="organization" class="form-control" placeholder="vd: Đại học TNMT TP.HCM">
+        </div>
+        <div class="form-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-create')">Hủy</button>
+        <button type="submit" class="btn btn-primary">✅ Tạo tài khoản</button>
+        </div>
+    </form>
+    </div>
+</div>
+</div>
+
+<!-- Modal xác nhận xóa -->
+<div class="modal-overlay" id="modal-delete">
+<div class="modal" style="max-width:380px">
+    <div class="modal-header">
+    <div class="modal-title">🗑️ Xác nhận xóa</div>
+    <button class="modal-close" onclick="closeModal('modal-delete')">×</button>
+    </div>
+    <div class="modal-body">
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:20px">
+        Bạn có chắc muốn xóa tài khoản <strong id="delete-username"></strong>? Hành động này không thể hoàn tác.
+    </p>
+    <div class="form-footer">
+        <button class="btn btn-ghost" onclick="closeModal('modal-delete')">Hủy</button>
+        <form id="delete-form" method="POST">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">🗑️ Xóa tài khoản</button>
+        </form>
+    </div>
+    </div>
+</div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function confirmDelete(url, username) {
+document.getElementById('delete-username').textContent = username;
+document.getElementById('delete-form').action = url;
+openModal('modal-delete');
+}
+
+document.getElementById('user-search').addEventListener('input', function() {
+const q = this.value.toLowerCase();
+document.querySelectorAll('#user-table tbody tr').forEach(row => {
+    const text = (row.dataset.search || '').toLowerCase();
+    row.style.display = text.includes(q) ? '' : 'none';
+});
+});
+</script>
+{% endblock %}

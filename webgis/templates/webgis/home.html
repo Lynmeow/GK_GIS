@@ -1,0 +1,707 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGIS Môi Trường TP.HCM</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="{% static 'webgis/css/base.css' %}">
+<link rel="stylesheet" href="{% static 'webgis/css/home.css' %}">
+<style>
+#mapSearchBox { position: relative; flex-wrap: wrap; }
+.leaflet-top.leaflet-left { top: 100px !important; }
+.map-container { overflow: visible !important; }
+#searchDropdown {
+display: none; position: absolute; top: 0; left: 0; width: 230px;
+background: #fff; border: 1.5px solid rgba(0,180,216,0.25); border-radius: 10px;
+box-shadow: 0 8px 24px rgba(0,119,182,0.13); z-index: 99999; overflow: hidden;
+opacity: 0; transition: opacity 0.15s ease;
+}
+#searchDropdown.visible { opacity: 1; }
+.search-item {
+padding: 9px 14px; font-size: 13px; color: #023E8A; cursor: pointer;
+display: flex; align-items: center; gap: 8px; transition: background 0.15s;
+border-bottom: 1px solid rgba(0,180,216,0.07);
+}
+.search-item:last-child { border-bottom: none; }
+.search-item:hover { background: rgba(0,180,216,0.08); }
+.search-item-icon { font-size: 12px; opacity: 0.6; }
+.search-item-name { font-weight: 500; }
+.search-item-sub { font-size: 11px; color: #90B8D4; margin-left: auto; }
+.search-empty { padding: 10px 14px; font-size: 12px; color: #90B8D4; text-align: center; }
+#mapSearchClear { flex-shrink: 0; line-height: 1; }
+.search-item.focused { background: rgba(0,180,216,0.12); }
+</style>
+</head>
+<body class="home-body">
+
+<nav class="navbar">
+<a href="{% url 'home' %}" class="nav-logo">
+<div class="nav-logo-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+<circle cx="12" cy="12" r="10"/>
+<path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+</svg>
+</div>
+<div class="nav-logo-text">HHL<span>Giám sát môi trường đô thị</span></div>
+</a>
+<nav class="nav-menu">
+<a href="#" class="nav-link active">Bản Đồ</a>
+{% if user.is_authenticated %}
+<a href="{% url 'analysis' %}" class="nav-link">Phân Tích</a>
+<a href="{% url 'alert' %}" class="nav-link">Cảnh Báo</a>
+<a href="{% url 'report' %}" class="nav-link">Báo Cáo</a>
+<a href="{% url 'forecast' %}" class="nav-link">Dự Báo</a>
+<a href="{% url 'feedback' %}" class="nav-link">Góp Ý</a>
+{% endif %}
+<a href="{% url 'stations_route' %}" class="nav-link">Tìm Trạm</a>
+<a href="{% url 'about' %}" class="nav-link">Giới Thiệu</a>
+</nav>
+<div class="nav-live"><div class="nav-live-dot"></div>LIVE · <span id="nav-time"></span> ICT</div>
+<div class="nav-right">
+{% if user.is_authenticated %}
+<a href="{% url 'dashboard' %}" style="text-decoration:none;">
+<div class="nav-user">
+<div class="nav-avatar">{{ user.username|first|upper }}</div>
+<span class="nav-username">{{ user.username }}</span>
+</div>
+</a>
+{% if user.profile.is_admin %}
+<a href="{% url 'dashboard' %}" class="nav-btn-login">Dashboard</a>
+{% else %}
+<form method="POST" action="{% url 'logout' %}" style="margin:0">
+{% csrf_token %}
+<button type="submit" class="nav-btn-logout">Đăng xuất</button>
+</form>
+{% endif %}
+{% else %}
+<a href="{% url 'login' %}" class="nav-btn-login">Đăng nhập</a>
+{% endif %}
+</div>
+</nav>
+
+<div class="ticker-bar">
+<div class="ticker-label">⚡ LIVE</div>
+<div class="ticker-track">
+<div class="ticker-content" id="ticker">
+<div class="ticker-item"><div class="t-dot" style="background:#FFD60A"></div><span class="t-label">AQI TB:</span><span class="t-value warn" id="ticker-aqi">--</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#EF233C"></div><span class="t-label">PM2.5:</span><span class="t-value danger" id="ticker-pm25">-- µg/m³</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#FF9A3C"></div><span class="t-label">Nhiệt độ:</span><span class="t-value warn" id="ticker-temp">--°C</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#00B4D8"></div><span class="t-label">Độ ẩm:</span><span class="t-value" id="ticker-humidity">--%</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#FF6B6B"></div><span class="t-label">Nhiệt UHI:</span><span class="t-value warn" id="ticker-lst">--°C</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#06D6A0"></div><span class="t-label">NDVI TB:</span><span class="t-value good" id="ticker-ndvi">--</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#00CFFF"></div><span class="t-label">NDWI Sông SG:</span><span class="t-value" id="ticker-ndwi">--</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#90E0EF"></div><span class="t-label">Vệ tinh Sentinel-2:</span><span class="t-value">Cập nhật 06:20 UTC</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#EF233C"></div><span class="t-label">⚠ Cảnh báo:</span><span class="t-value danger" id="ticker-warn">PM2.5 vượt ngưỡng tại Bình Chánh, Hóc Môn</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#FFD60A"></div><span class="t-label">AQI TB:</span><span class="t-value warn" id="ticker-aqi2">--</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#EF233C"></div><span class="t-label">PM2.5:</span><span class="t-value danger" id="ticker-pm252">-- µg/m³</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#FF9A3C"></div><span class="t-label">Nhiệt độ:</span><span class="t-value warn" id="ticker-temp2">--°C</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#00B4D8"></div><span class="t-label">Độ ẩm:</span><span class="t-value" id="ticker-humidity2">--%</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#FF6B6B"></div><span class="t-label">Nhiệt UHI:</span><span class="t-value warn" id="ticker-lst2">--°C</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#06D6A0"></div><span class="t-label">NDVI TB:</span><span class="t-value good" id="ticker-ndvi2">--</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#00CFFF"></div><span class="t-label">NDWI Sông SG:</span><span class="t-value" id="ticker-ndwi2">--</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#90E0EF"></div><span class="t-label">Vệ tinh Sentinel-2:</span><span class="t-value">Cập nhật 06:20 UTC</span></div>
+<div class="ticker-item"><div class="t-dot" style="background:#EF233C"></div><span class="t-label">⚠ Cảnh báo:</span><span class="t-value danger">PM2.5 vượt ngưỡng tại Bình Chánh, Hóc Môn</span></div>
+</div>
+</div>
+</div>
+
+<div class="main-layout">
+
+<div class="sidebar-left" id="sidebarLeft">
+
+<div class="sidebar-section">
+<div class="sidebar-section-title">Tổng quan</div>
+<div class="stat-mini-grid">
+<div class="stat-mini">
+<div class="stat-mini-value" style="color:#FFD60A" id="stat-aqi">--</div>
+<div class="stat-mini-label">AQI Trung Bình</div>
+<div class="stat-mini-change" id="stat-aqi-change" style="color:#90B8D4">Đang tải...</div>
+</div>
+<div class="stat-mini">
+<div class="stat-mini-value" style="color:#EF233C" id="stat-pm25">--</div>
+<div class="stat-mini-label">PM2.5 µg/m³</div>
+<div class="stat-mini-change" id="stat-pm25-change" style="color:#90B8D4">Đang tải...</div>
+</div>
+<div class="stat-mini">
+<div class="stat-mini-value" style="color:#FF6B6B" id="stat-lst">--</div>
+<div class="stat-mini-label">LST Đô Thị</div>
+<div class="stat-mini-change" id="stat-temp" style="color:#90B8D4">--°C ngoài trời</div>
+</div>
+<div class="stat-mini">
+<div class="stat-mini-value" style="color:#06D6A0" id="stat-ndvi">--</div>
+<div class="stat-mini-label">NDVI TB</div>
+<div class="stat-mini-change" id="stat-ndwi" style="color:#90B8D4">NDWI: --</div>
+</div>
+</div>
+</div>
+
+<div class="sidebar-section" id="weatherSection">
+<div class="sidebar-section-title">Thời tiết TPHCM</div>
+<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+<span style="font-size:24px" id="weatherIcon">🌤</span>
+<div>
+<div style="font-size:18px;font-weight:700;color:#023E8A" id="weatherTemp">--°C</div>
+<div style="font-size:11px;color:#90B8D4" id="weatherDesc">Đang tải...</div>
+</div>
+<div style="margin-left:auto;text-align:right">
+<div style="font-size:11px;color:#5A8DB8">💧 <span id="weatherHumidity">--</span>%</div>
+<div style="font-size:11px;color:#5A8DB8">🌬 <span id="weatherWind">--</span> m/s</div>
+</div>
+</div>
+</div>
+
+<div class="sidebar-section">
+<div class="sidebar-section-title">Lớp bản đồ</div>
+
+<div class="layer-item">
+<label class="layer-toggle">
+<input type="checkbox" checked onchange="toggleLayer('air', this.checked)">
+<div class="layer-toggle-track"></div>
+</label>
+<div class="layer-icon" style="background:rgba(255,107,107,0.15)">💨</div>
+<div class="layer-info"><div class="layer-name">Chất lượng không khí</div></div>
+<span class="layer-badge" style="background:rgba(255,107,107,0.15);color:#FF6B6B">AQI</span>
+</div>
+<div class="layer-opacity">
+<input type="range" class="opacity-slider" min="0" max="100" value="80" oninput="setLayerOpacity('air', this.value)">
+</div>
+
+<div class="layer-item">
+<label class="layer-toggle">
+<input type="checkbox" checked onchange="toggleLayer('ndvi', this.checked)">
+<div class="layer-toggle-track"></div>
+</label>
+<div class="layer-icon" style="background:rgba(6,214,160,0.15)">🌿</div>
+<div class="layer-info"><div class="layer-name">Chỉ số NDVI</div></div>
+<span class="layer-badge" style="background:rgba(6,214,160,0.15);color:#06D6A0">VEG</span>
+</div>
+<div class="layer-opacity">
+<input type="range" class="opacity-slider" min="0" max="100" value="70" oninput="setLayerOpacity('ndvi', this.value)">
+</div>
+
+<div class="layer-item">
+<label class="layer-toggle">
+<input type="checkbox" onchange="toggleLayer('lst', this.checked)">
+<div class="layer-toggle-track"></div>
+</label>
+<div class="layer-icon" style="background:rgba(255,107,107,0.15)">🌡</div>
+<div class="layer-info"><div class="layer-name">Nhiệt bề mặt (LST)</div></div>
+<span class="layer-badge" style="background:rgba(255,107,107,0.15);color:#FF6B6B">LST</span>
+</div>
+<div class="layer-opacity">
+<input type="range" class="opacity-slider" min="0" max="100" value="75" oninput="setLayerOpacity('lst', this.value)">
+</div>
+
+<div class="layer-item">
+<label class="layer-toggle">
+<input type="checkbox" checked onchange="toggleLayer('flood', this.checked)">
+<div class="layer-toggle-track"></div>
+</label>
+<div class="layer-icon" style="background:rgba(0,207,255,0.15)">🌊</div>
+<div class="layer-info"><div class="layer-name">Nguy cơ ngập úng</div></div>
+<span class="layer-badge" style="background:rgba(0,207,255,0.15);color:#00CFFF">FLOOD</span>
+</div>
+<div class="layer-opacity">
+<input type="range" class="opacity-slider" min="0" max="100" value="65" oninput="setLayerOpacity('flood', this.value)">
+</div>
+
+<div class="layer-item">
+<label class="layer-toggle">
+<input type="checkbox" onchange="toggleLayer('water', this.checked)">
+<div class="layer-toggle-track"></div>
+</label>
+<div class="layer-icon" style="background:rgba(0,119,182,0.15)">💧</div>
+<div class="layer-info"><div class="layer-name">Chất lượng nước</div></div>
+<span class="layer-badge" style="background:rgba(0,119,182,0.15);color:#0077B6">NDWI</span>
+</div>
+<div class="layer-opacity">
+<input type="range" class="opacity-slider" min="0" max="100" value="70" oninput="setLayerOpacity('water', this.value)">
+</div>
+</div>
+
+<div class="sidebar-section">
+<div class="sidebar-section-title">Trạm quan trắc</div>
+<div class="layer-item">
+<label class="layer-toggle">
+<input type="checkbox" checked onchange="toggleStations(this.checked)">
+<div class="layer-toggle-track"></div>
+</label>
+<div class="layer-icon" style="background:rgba(0,180,216,0.15)">📍</div>
+<div class="layer-info"><div class="layer-name">Hiển thị trạm</div></div>
+</div>
+</div>
+
+</div><!-- end sidebar-left -->
+
+<button class="sidebar-toggle-btn" id="sidebarToggle" onclick="toggleSidebar()">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+<polyline points="15 18 9 12 15 6"/>
+</svg>
+</button>
+
+<div class="map-container">
+
+<div class="map-controls">
+<div class="map-search" id="mapSearchBox">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+</svg>
+<input type="text" id="mapSearchInput" placeholder="Tìm quận, địa chỉ..." autocomplete="off">
+<button id="mapSearchClear" onclick="clearSearch()"
+    style="display:none;background:none;border:none;cursor:pointer;padding:0;color:#90B8D4;font-size:14px;line-height:1;flex-shrink:0;">✕</button>
+</div>
+<div class="map-layer-tabs">
+<button class="map-layer-tab active"  data-layer="satellite" onclick="setActiveTab(this, 'satellite')">Vệ tinh</button>
+<button class="map-layer-tab"         data-layer="air"       onclick="setActiveTab(this, 'air')">AQI</button>
+<button class="map-layer-tab"         data-layer="ndvi"      onclick="setActiveTab(this, 'ndvi')">NDVI</button>
+<button class="map-layer-tab"         data-layer="lst"       onclick="setActiveTab(this, 'lst')">LST</button>
+<button class="map-layer-tab"         data-layer="water"     onclick="setActiveTab(this, 'water')">Nước</button>
+<button class="map-layer-tab"         data-layer="flood"     onclick="setActiveTab(this, 'flood')">Ngập úng</button>
+</div>
+</div>
+
+<div id="searchDropdown"></div>
+
+<div id="mapLoading" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:999;background:rgba(255,255,255,0.95);padding:14px 22px;border-radius:12px;border:1.5px solid rgba(0,180,216,0.3);font-size:13px;color:#0077B6;font-weight:600;box-shadow:0 4px 16px rgba(0,180,216,0.15);">
+🛰️ Đang tải dữ liệu GEE...
+</div>
+
+<div id="main-map"></div>
+
+<div class="map-popup" id="mapPopup">
+<div class="popup-header">
+<div class="popup-title"><span>📍</span><span id="popupDistrict">Bình Chánh</span></div>
+<button class="popup-close" onclick="closePopup()">✕</button>
+</div>
+<div class="popup-grid">
+<div class="popup-stat"><div class="popup-stat-label">AQI</div><div class="popup-stat-value bad" id="popupAqi">142</div></div>
+<div class="popup-stat"><div class="popup-stat-label">PM2.5</div><div class="popup-stat-value bad" id="popupPm25">58 µg/m³</div></div>
+<div class="popup-stat"><div class="popup-stat-label">NDVI</div><div class="popup-stat-value good" id="popupNdvi">0.31</div></div>
+<div class="popup-stat"><div class="popup-stat-label">LST</div><div class="popup-stat-value warn" id="popupLst">39.8°C</div></div>
+</div>
+<div class="popup-footer" id="popupTime">Cập nhật: 12:45</div>
+</div>
+
+<div class="map-statusbar">
+<div class="statusbar-item">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+</svg>
+<span id="statusCoord">10.8231°N, 106.6297°E</span>
+</div>
+<div class="statusbar-item statusbar-zoom">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+</svg>
+<span>Zoom: <span id="statusZoom">11</span></span>
+</div>
+<div class="statusbar-item statusbar-source" id="statusLayer">Nguồn: GEE · Sentinel-2 · OpenWeather</div>
+<div class="statusbar-item" style="margin-left:auto">Cập nhật: <span id="statusTime"></span></div>
+</div>
+</div><!-- end map-container -->
+
+<div class="panel-right">
+
+<div class="panel-section">
+<div class="panel-section-title">
+Ảnh vệ tinh
+<a href="#" onclick="refreshSatellite(); return false;">Làm mới ↻</a>
+</div>
+<div class="sat-type-tabs">
+<button class="sat-type-tab active" onclick="loadSatellite('rgb', this)">RGB Thật</button>
+<button class="sat-type-tab" onclick="loadSatellite('ndvi', this)">NDVI</button>
+<button class="sat-type-tab" onclick="loadSatellite('tir', this)">Nhiệt (TIR)</button>
+</div>
+
+<div style="display:flex;gap:5px;margin:7px 0;align-items:center;">
+<select id="satMonth" style="flex:1;padding:5px 7px;border:1.5px solid rgba(0,180,216,0.2);border-radius:7px;font-size:11px;color:#023E8A;background:#fff;outline:none;cursor:pointer;">
+<option value="1">Tháng 1</option><option value="2">Tháng 2</option>
+<option value="3">Tháng 3</option><option value="4">Tháng 4</option>
+<option value="5">Tháng 5</option><option value="6">Tháng 6</option>
+<option value="7">Tháng 7</option><option value="8">Tháng 8</option>
+<option value="9">Tháng 9</option><option value="10">Tháng 10</option>
+<option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+</select>
+<select id="satYear" style="width:68px;padding:5px 7px;border:1.5px solid rgba(0,180,216,0.2);border-radius:7px;font-size:11px;color:#023E8A;background:#fff;outline:none;cursor:pointer;">
+<option value="2026">2026</option>
+<option value="2025">2025</option>
+<option value="2024">2024</option>
+<option value="2023">2023</option>
+</select>
+<button onclick="refreshSatellite()" style="padding:5px 9px;background:#00B4D8;color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">Tìm</button>
+</div>
+
+<div class="satellite-thumb" id="satThumb" style="position:relative;overflow:hidden;">
+<div class="satellite-thumb-badge" id="satBadge">SENTINEL-2 · Đang tải...</div>
+<div class="satellite-thumb-icon" id="satIcon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+<rect x="2" y="3" width="20" height="14" rx="2"/>
+<path d="M8 21h8M12 17v4"/>
+<circle cx="12" cy="10" r="3"/>
+</svg>
+</div>
+<img id="satImg" src="" alt="Ảnh vệ tinh"
+style="display:none;width:100%;height:100%;object-fit:cover;border-radius:8px;position:absolute;top:0;left:0;">
+<div class="satellite-thumb-date" id="satDate">--</div>
+</div>
+
+<div style="font-size:11px;color:#90B8D4;text-align:center;margin-bottom:8px" id="satMeta">Đang tải dữ liệu vệ tinh...</div>
+
+<a id="satDownloadBtn" href="#" target="_blank"
+style="display:none;text-align:center;padding:8px;background:linear-gradient(135deg,#00B4D8,#0077B6);border-radius:8px;font-size:12px;font-weight:600;color:#fff;text-decoration:none;">
+⬇ Tải ảnh GeoTIFF
+</a>
+</div>
+
+<div class="panel-section">
+<div class="panel-section-title">Biến động PM2.5 24H<a href="#">24H ▾</a></div>
+<div class="chart-mini-label">PM2.5 – TPHCM<span id="chartPm25Val">-- µg/m³</span></div>
+<div class="chart-mini"><canvas id="chartPm25"></canvas></div>
+</div>
+
+<div class="panel-section" id="geeDataPanel" style="display:none">
+<div class="panel-section-title" id="geeDataTitle">Dữ liệu GEE</div>
+<div id="geeDataContent"></div>
+</div>
+
+<div class="panel-section">
+<div class="panel-section-title">Chỉ số môi trường</div>
+<div class="env-index-item">
+<span class="env-index-label">NDVI (Mảng xanh)</span>
+<div class="env-index-bar-wrap"><div class="env-index-bar" id="barNdvi" style="width:43%;background:#06D6A0"></div></div>
+<span class="env-index-val" id="valNdvi">43%</span>
+</div>
+<div class="env-index-item">
+<span class="env-index-label">Độ ẩm không khí</span>
+<div class="env-index-bar-wrap"><div class="env-index-bar" id="barHumidity" style="width:61%;background:#00B4D8"></div></div>
+<span class="env-index-val" id="valHumidity">61%</span>
+</div>
+<div class="env-index-item" id="envNdwi">
+<span class="env-index-label">Nguy cơ ngập (MNDWI)</span>
+<div class="env-index-bar-wrap"><div class="env-index-bar" style="width:77%;background:#FFD60A"></div></div>
+<span class="env-index-val">77%</span>
+</div>
+<div class="env-index-item">
+<span class="env-index-label">Chỉ số đô thị hóa (NDBI)</span>
+<div class="env-index-bar-wrap"><div class="env-index-bar" style="width:78%;background:#EF233C"></div></div>
+<span class="env-index-val">78%</span>
+</div>
+<div class="env-index-item">
+<span class="env-index-label">Chất lượng không khí</span>
+<div class="env-index-bar-wrap"><div class="env-index-bar" id="barAqi" style="width:55%;background:#FF6B6B"></div></div>
+<span class="env-index-val" id="valAqi">55%</span>
+</div>
+</div>
+
+<div class="panel-section">
+<div class="panel-section-title">Phản ánh môi trường</div>
+{% if user.is_authenticated %}
+<a href="{% url 'feedback' %}" style="display:block;text-align:center;padding:9px;background:rgba(0,180,216,0.08);border:1px solid rgba(0,180,216,0.25);border-radius:8px;font-size:13px;font-weight:600;color:#0077B6;text-decoration:none;">+ Gửi phản ánh</a>
+{% endif %}
+</div>
+
+</div><!-- end panel-right -->
+</div><!-- end main-layout -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{% static 'webgis/js/map.js' %}?v=11"></script>
+
+<script>
+/* ── Clock ── */
+function updateTime() {
+    const hcm = new Date(new Date().toLocaleString('en', {timeZone:'Asia/Ho_Chi_Minh'}));
+    const t = [hcm.getHours(), hcm.getMinutes(), hcm.getSeconds()].map(n => String(n).padStart(2,'0')).join(':');
+    document.getElementById('nav-time').textContent = t;
+    document.getElementById('statusTime').textContent = t;
+}
+updateTime();
+setInterval(updateTime, 1000);
+
+/* ── Sidebar toggle — desktop + mobile ── */
+let sidebarOpen = true;
+function toggleSidebar() {
+    const sb  = document.getElementById('sidebarLeft');
+    const btn = document.getElementById('sidebarToggle');
+    if (window.innerWidth <= 900) {
+        const isOpen  = sb.classList.contains('open');
+        const overlay = document.querySelector('.sidebar-overlay');
+        if (isOpen) {
+            sb.classList.remove('open');
+            btn.classList.remove('open');
+            if (overlay) overlay.classList.remove('show');
+        } else {
+            sb.style.width    = '';
+            sb.style.overflow = '';
+            sb.classList.remove('collapsed');
+            btn.classList.remove('collapsed');
+            sb.classList.add('open');
+            btn.classList.add('open');
+            if (overlay) overlay.classList.add('show');
+        }
+    } else {
+        sidebarOpen = !sidebarOpen;
+        sb.style.width     = '';
+        sb.style.overflow  = '';
+        sb.style.transform = '';
+        sb.classList.toggle('collapsed', !sidebarOpen);
+        btn.classList.toggle('collapsed', !sidebarOpen);
+        btn.style.left = sidebarOpen ? '' : '0px';
+    }
+}
+
+/* ── Layer tabs ── */
+function setActiveTab(el, layer) {
+    document.querySelectorAll('.map-layer-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const loading = document.getElementById('mapLoading');
+    if (window.mapInstance) {
+        if (['air','ndvi','lst','flood','water'].includes(layer)) loading.style.display = 'block';
+        window.mapInstance.setActiveLayer(layer, function() { loading.style.display = 'none'; });
+    }
+}
+
+/* ── Chart PM2.5 ── */
+let pm25Chart;
+const ctx = document.getElementById('chartPm25').getContext('2d');
+pm25Chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: ['0h','3h','6h','9h','12h','15h','18h','21h','24h'],
+        datasets: [{ data: [0,0,0,0,0,0,0,0,0], borderColor: '#00B4D8', backgroundColor: 'rgba(0,180,216,0.1)', borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: true }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { display: false }, y: { display: true, grid: { color: 'rgba(0,180,216,0.08)' }, ticks: { color: '#90B8D4', font: { size: 9 }, maxTicksLimit: 3 } } }
+    }
+});
+
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.textContent = val;
+}
+
+/* ── Weather & GEE Data ── */
+async function loadWeatherData() {
+    try {
+        const res = await fetch('/api/weather/');
+        const json = await res.json();
+        if (!json.success) return;
+        const w = json.weather, air = json.air;
+        if (!w.error) {
+            setText('weatherTemp', w.temp + '°C'); setText('weatherDesc', w.description);
+            setText('weatherHumidity', w.humidity); setText('weatherWind', w.wind_speed);
+            setText('ticker-temp', w.temp + '°C'); setText('ticker-temp2', w.temp + '°C');
+            setText('ticker-humidity', w.humidity); setText('ticker-humidity2', w.humidity);
+            setText('stat-temp', w.temp + '°C ngoài trời');
+            const humEl = document.getElementById('barHumidity'), humVal = document.getElementById('valHumidity');
+            if (humEl) humEl.style.width = w.humidity + '%';
+            if (humVal) humVal.textContent = w.humidity + '%';
+            const iconMap = {'01':'☀️','02':'⛅','03':'☁️','04':'☁️','09':'🌧','10':'🌦','11':'⛈','13':'❄️','50':'🌫'};
+            setText('weatherIcon', iconMap[w.icon?.substring(0,2)] || '🌤');
+        }
+        if (!air.error) {
+            setText('stat-aqi', air.aqi); setText('stat-pm25', air.pm25);
+            setText('ticker-aqi', air.aqi); setText('ticker-aqi2', air.aqi);
+            setText('ticker-pm25', air.pm25 + ' µg/m³'); setText('ticker-pm252', air.pm25 + ' µg/m³');
+            setText('chartPm25Val', air.pm25 + ' µg/m³');
+            const aqiPct = Math.min(Math.round(air.aqi / 3), 100);
+            const barAqi = document.getElementById('barAqi'), valAqi = document.getElementById('valAqi');
+            if (barAqi) barAqi.style.width = aqiPct + '%';
+            if (valAqi) valAqi.textContent = air.aqi;
+            if (air.aqi > 100) setText('ticker-warn', `⚠ AQI ${air.aqi} - Không tốt cho sức khỏe!`);
+            const pm25 = air.pm25;
+            const chartData = Array.from({length: 9}, () => Math.max(5, pm25 + (Math.random() - 0.5) * 20)).map(v => Math.round(v * 10) / 10);
+            pm25Chart.data.datasets[0].data = chartData;
+            pm25Chart.update();
+        }
+    } catch(e) { console.warn('Weather API error:', e); }
+}
+
+async function loadGeeData() {
+    try {
+        const uhiJson = await (await fetch('/api/uhi/')).json();
+        if (uhiJson.success && uhiJson.data && !uhiJson.data.error) {
+            const d = uhiJson.data;
+            if (d.lst) { setText('stat-lst', d.lst + '°'); setText('ticker-lst', d.lst + '°C'); setText('ticker-lst2', d.lst + '°C'); }
+            if (d.ndvi) { setText('stat-ndvi', d.ndvi); setText('ticker-ndvi', d.ndvi); setText('ticker-ndvi2', d.ndvi); }
+        }
+    } catch(e) {}
+    try {
+        const waterJson = await (await fetch('/api/water/')).json();
+        if (waterJson.success && waterJson.data && !waterJson.data.error && waterJson.data.ndwi) {
+            const d = waterJson.data;
+            setText('ticker-ndwi', d.ndwi); setText('ticker-ndwi2', d.ndwi);
+            const pct = Math.round(((d.ndwi + 1) / 2) * 100);
+            const bar = document.querySelector('#envNdwi .env-index-bar'), val = document.querySelector('#envNdwi .env-index-val');
+            if (bar) bar.style.width = pct + '%';
+            if (val) val.textContent = pct + '%';
+        }
+    } catch(e) {}
+    try {
+        const ndviJson = await (await fetch('/api/gee/tile/?layer=ndvi&days=90')).json();
+        if (ndviJson.success && ndviJson.data && ndviJson.data.ndvi) {
+            const pct = Math.round(((ndviJson.data.ndvi + 0.2) / 1.0) * 100);
+            const bar = document.getElementById('barNdvi'), val = document.getElementById('valNdvi');
+            if (bar) bar.style.width = Math.min(pct, 100) + '%';
+            if (val) val.textContent = Math.min(pct, 100) + '%';
+        }
+    } catch(e) {}
+}
+
+loadWeatherData(); loadGeeData();
+setInterval(loadWeatherData, 10 * 60 * 1000);
+setInterval(loadGeeData, 15 * 60 * 1000);
+
+/* ── Search ── */
+const DISTRICTS = [
+    { name: 'Quận 1', lat: 10.7769, lng: 106.7009 }, { name: 'Quận 3', lat: 10.7838, lng: 106.6861 },
+    { name: 'Quận 4', lat: 10.7579, lng: 106.7030 }, { name: 'Quận 5', lat: 10.7551, lng: 106.6619 },
+    { name: 'Quận 6', lat: 10.7468, lng: 106.6349 }, { name: 'Quận 7', lat: 10.7340, lng: 106.7218 },
+    { name: 'Quận 8', lat: 10.7233, lng: 106.6285 }, { name: 'Quận 10', lat: 10.7740, lng: 106.6680 },
+    { name: 'Quận 11', lat: 10.7627, lng: 106.6481 }, { name: 'Quận 12', lat: 10.8627, lng: 106.6564 },
+    { name: 'Bình Chánh', lat: 10.6746, lng: 106.5956 }, { name: 'Bình Tân', lat: 10.7644, lng: 106.6032 },
+    { name: 'Bình Thạnh', lat: 10.8119, lng: 106.7106 }, { name: 'Cần Giờ', lat: 10.4110, lng: 106.9529 },
+    { name: 'Củ Chi', lat: 11.0019, lng: 106.4942 }, { name: 'Gò Vấp', lat: 10.8383, lng: 106.6658 },
+    { name: 'Hóc Môn', lat: 10.8914, lng: 106.5929 }, { name: 'Nhà Bè', lat: 10.6910, lng: 106.7381 },
+    { name: 'Phú Nhuận', lat: 10.7995, lng: 106.6816 }, { name: 'Tân Bình', lat: 10.8017, lng: 106.6524 },
+    { name: 'Tân Phú', lat: 10.7908, lng: 106.6283 }, { name: 'Thủ Đức', lat: 10.8600, lng: 106.7515 },
+];
+
+const searchInput    = document.getElementById('mapSearchInput');
+const searchDropdown = document.getElementById('searchDropdown');
+const searchClear    = document.getElementById('mapSearchClear');
+
+function normalizeStr(s) {
+    return s.toLowerCase().replace(/đ/g,'d').replace(/Đ/g,'d').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+function positionDropdown() {
+    const inputRect     = searchInput.getBoundingClientRect();
+    const containerRect = document.querySelector('.map-container').getBoundingClientRect();
+    searchDropdown.style.top   = (inputRect.bottom - containerRect.top + 6) + 'px';
+    searchDropdown.style.left  = (inputRect.left - containerRect.left) + 'px';
+    searchDropdown.style.width = inputRect.width + 'px';
+}
+
+function showDropdown() {
+    searchDropdown.style.display = 'block';
+    requestAnimationFrame(() => searchDropdown.classList.add('visible'));
+}
+
+function hideDropdown() {
+    searchDropdown.classList.remove('visible');
+    searchDropdown.style.display = 'none';
+}
+
+function renderDropdown(items) {
+    positionDropdown();
+    if (!items.length) {
+        searchDropdown.innerHTML = '<div class="search-empty">Không tìm thấy kết quả</div>';
+        showDropdown(); return;
+    }
+    searchDropdown.innerHTML = items.map(d => `
+        <div class="search-item" data-lat="${d.lat}" data-lng="${d.lng}" data-name="${d.name}">
+            <span class="search-item-icon">📍</span>
+            <span class="search-item-name">${d.name}</span>
+            <span class="search-item-sub">TP.HCM</span>
+        </div>`).join('');
+    showDropdown();
+    searchDropdown.querySelectorAll('.search-item').forEach(el => {
+        el.addEventListener('click', function() {
+            if (window._leafletMap) window._leafletMap.setView([parseFloat(this.dataset.lat), parseFloat(this.dataset.lng)], 14);
+            searchInput.value = this.dataset.name;
+            hideDropdown();
+            searchClear.style.display = 'inline';
+        });
+    });
+}
+
+searchInput.addEventListener('input', function() {
+    const q = normalizeStr(this.value.trim());
+    searchClear.style.display = this.value ? 'inline' : 'none';
+    if (!q) { hideDropdown(); return; }
+    renderDropdown(DISTRICTS.filter(d => normalizeStr(d.name).includes(q)));
+});
+
+searchInput.addEventListener('focus', function() {
+    if (this.value.trim()) renderDropdown(DISTRICTS.filter(d => normalizeStr(d.name).includes(normalizeStr(this.value.trim()))));
+});
+
+function clearSearch() {
+    searchInput.value = ''; hideDropdown();
+    searchClear.style.display = 'none'; searchInput.focus();
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#mapSearchBox') && !e.target.closest('#searchDropdown')) hideDropdown();
+});
+
+searchInput.addEventListener('keydown', function(e) {
+    const items = searchDropdown.querySelectorAll('.search-item');
+    if (!items.length) return;
+    let focused = searchDropdown.querySelector('.search-item.focused');
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (focused) { focused.classList.remove('focused'); focused = focused.nextElementSibling || items[0]; }
+        else focused = items[0];
+        focused.classList.add('focused'); focused.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (focused) { focused.classList.remove('focused'); focused = focused.previousElementSibling || items[items.length-1]; }
+        else focused = items[items.length-1];
+        focused.classList.add('focused'); focused.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && focused) { focused.click(); }
+    else if (e.key === 'Escape') { hideDropdown(); }
+});
+
+/* ── Ảnh vệ tinh ── */
+let currentSatType = 'rgb';
+
+async function loadSatellite(type, tabEl) {
+    currentSatType = type;
+    document.querySelectorAll('.sat-type-tab').forEach(t => t.classList.remove('active'));
+    if (tabEl) tabEl.classList.add('active');
+    const img = document.getElementById('satImg'), icon = document.getElementById('satIcon');
+    const badge = document.getElementById('satBadge'), dateEl = document.getElementById('satDate');
+    const metaEl = document.getElementById('satMeta'), dlBtn = document.getElementById('satDownloadBtn');
+    img.style.display = 'none'; icon.style.display = 'flex';
+    badge.textContent = 'Đang tải...'; dateEl.textContent = '--';
+    metaEl.textContent = 'Đang kết nối GEE...'; dlBtn.style.display = 'none';
+    try {
+        const month = document.getElementById('satMonth')?.value || (new Date().getMonth() + 1);
+        const year  = document.getElementById('satYear')?.value  || new Date().getFullYear();
+        const json  = await (await fetch(`/api/satellite/?type=${type}&month=${month}&year=${year}`)).json();
+        if (!json.success || !json.data || json.data.error) { metaEl.textContent = 'Không tải được ảnh vệ tinh'; return; }
+        const d = json.data;
+        if (d.thumb_url) {
+            img.src = d.thumb_url;
+            img.onload  = () => { img.style.display = 'block'; icon.style.display = 'none'; };
+            img.onerror = () => { img.style.display = 'none';  icon.style.display = 'flex'; };
+        }
+        badge.textContent = type === 'tir' ? 'LANDSAT 8 · TIR' : 'SENTINEL-2 · ' + type.toUpperCase();
+        dateEl.textContent = `${d.resolution} · ${d.date}`;
+        metaEl.textContent = `Ngày chụp: ${d.date} · Mây: ${d.cloud_pct}%`;
+        if (d.download_url) { dlBtn.href = d.download_url; dlBtn.style.display = 'block'; }
+    } catch(e) { metaEl.textContent = 'Lỗi kết nối: ' + e.message; }
+}
+
+function refreshSatellite() {
+    loadSatellite(currentSatType, document.querySelector('.sat-type-tab.active'));
+}
+
+(function() {
+    const now = new Date();
+    const mEl = document.getElementById('satMonth'), yEl = document.getElementById('satYear');
+    if (mEl) mEl.value = now.getMonth() + 1;
+    if (yEl) yEl.value = now.getFullYear();
+})();
+loadSatellite('rgb', document.querySelector('.sat-type-tab.active'));
+</script>
+
+</body>
+</html>

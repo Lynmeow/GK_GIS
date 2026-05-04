@@ -1,0 +1,158 @@
+    {% load static %}
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Panel{% endblock %} – WebGIS TP.HCM</title>
+    <link rel="stylesheet" href="{% static 'webgis/css/admin.css' %}">
+    {% block extra_head %}{% endblock %}
+    </head>
+    <body>
+    <div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="admin-sidebar">
+        <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#03045E" stroke-width="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+        </div>
+        <div class="sidebar-logo-title">WebGIS Môi Trường<br>TP. Hồ Chí Minh</div>
+        <div class="sidebar-logo-sub">Admin Panel v1.0</div>
+        </div>
+
+        <nav class="sidebar-nav">
+        <div class="nav-section-label">Tổng quan</div>
+        <a href="{% url 'admin_dashboard' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+            Dashboard
+        </a>
+
+        <div class="nav-section-label">Quản lý</div>
+        <a href="{% url 'admin_users' %}" class="nav-item {% if 'admin_user' in request.resolver_match.url_name %}active{% endif %}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Người dùng
+        </a>
+
+        <a href="{% url 'admin_stations' %}" class="nav-item {% if 'admin_station' in request.resolver_match.url_name %}active{% endif %}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            Trạm quan trắc
+        </a>
+
+        <a href="{% url 'admin_proposals' %}" class="nav-item {% if 'admin_proposal' in request.resolver_match.url_name %}active{% endif %}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Xét duyệt đề xuất
+        </a>
+
+        <a href="{% url 'admin_audit_log' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_audit_log' %}active{% endif %}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                Nhật ký hành động
+        </a>
+
+<a href="{% url 'admin_about_edit' %}" class="nav-item {% if request.resolver_match.url_name == 'admin_about_edit' %}active{% endif %}">
+    📝 Trang giới thiệu
+</a>
+
+        <div class="nav-section-label">Hệ thống</div>
+        <a href="{% url 'home' %}" class="nav-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            Trang chủ
+        </a>
+        <a href="{% url 'dashboard' %}" class="nav-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Quay về Dashboard
+        </a>
+        </nav>
+
+        <div class="sidebar-footer">
+        <div class="sidebar-user">
+            <div class="sidebar-avatar">{{ request.user.username|first|upper }}</div>
+            <div class="sidebar-user-info">
+            <div class="sidebar-username">{{ request.user.username }}</div>
+            <div class="sidebar-role">⚡ Quản trị viên</div>
+            </div>
+        </div>
+        <form method="POST" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-sidebar-logout">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            Đăng xuất
+            </button>
+        </form>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="admin-main">
+        <div class="admin-topbar">
+        <div class="topbar-breadcrumb">
+            <span>Admin</span>
+            <span>›</span>
+            <strong>{% block breadcrumb %}Dashboard{% endblock %}</strong>
+        </div>
+        <div class="topbar-actions">
+            <span style="font-size:12px;color:var(--text-muted)">🕐 <span id="topbar-time">--:--</span></span>
+        </div>
+        </div>
+
+        <div class="admin-content">
+        {% if messages %}
+        <div class="messages-container">
+            {% for msg in messages %}
+            <div class="message message-{% if msg.tags == 'error' %}error{% else %}success{% endif %}">
+            {% if msg.tags == 'error' %}❌{% else %}✅{% endif %} {{ msg }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    </div>
+
+    <script>
+    function updateTime() {
+    const now = new Date();
+    const t = [now.getHours(), now.getMinutes()].map(n => String(n).padStart(2,'0')).join(':');
+    document.getElementById('topbar-time').textContent = t;
+    }
+    updateTime();
+    setInterval(updateTime, 60000);
+    </script>
+
+    {% block extra_js %}{% endblock %}
+    </body>
+    </html>

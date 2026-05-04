@@ -1,0 +1,505 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Báo Cáo – WebGIS Môi Trường TP.HCM</title>
+<link rel="stylesheet" href="{% static 'webgis/css/base.css' %}">
+<link rel="stylesheet" href="{% static 'webgis/css/report.css' %}">
+<style>
+.research-note-section {
+  margin: 24px;
+  background: linear-gradient(135deg, rgba(0,180,216,0.05), rgba(0,119,182,0.03));
+  border: 1.5px solid rgba(0,180,216,0.2);
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.research-note-title {
+  font-size: 14px; font-weight: 700; color: #023E8A;
+  margin-bottom: 4px; display: flex; align-items: center; gap: 8px;
+}
+.research-note-sub {
+  font-size: 11px; color: #90B8D4; margin-bottom: 16px;
+}
+.note-form textarea {
+  width: 100%; min-height: 100px;
+  padding: 12px 14px;
+  border: 1.5px solid rgba(0,180,216,0.2);
+  border-radius: 10px;
+  font-size: 13px; color: #023E8A;
+  font-family: inherit; resize: vertical;
+  outline: none; box-sizing: border-box;
+  background: #fff;
+  transition: border 0.2s;
+}
+.note-form textarea:focus { border-color: #00B4D8; box-shadow: 0 0 0 3px rgba(0,180,216,0.1); }
+.note-form-footer {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+}
+.note-submit {
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #00B4D8, #0077B6);
+  color: #fff; border: none; border-radius: 8px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s;
+}
+.note-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,180,216,0.3); }
+.note-char { font-size: 11px; color: #90B8D4; }
+.notes-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.note-item {
+  background: #fff;
+  border: 1px solid rgba(0,180,216,0.12);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.note-item-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.note-item-author {
+  font-size: 12px; font-weight: 600; color: #023E8A;
+  display: flex; align-items: center; gap: 6px;
+}
+.note-item-avatar {
+  width: 22px; height: 22px;
+  background: linear-gradient(135deg, #00B4D8, #0077B6);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #fff;
+}
+.note-item-time { font-size: 10px; color: #90B8D4; }
+.note-item-content { font-size: 12px; color: #5A8DB8; line-height: 1.6; }
+.btn-export {
+  padding: 9px 18px;
+  background: linear-gradient(135deg, #06D6A0, #0096c7);
+  color: #fff; border: none; border-radius: 10px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-export:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(6,214,160,0.35); }
+.btn-export:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.trend-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.trend-chart-card {
+  background: #fff;
+  border: 1.5px solid rgba(0,180,216,0.12);
+  border-radius: 12px; padding: 16px;
+}
+.trend-chart-title { font-size: 12px; font-weight: 700; color: #023E8A; margin-bottom: 10px; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+<a href="{% url 'home' %}" class="nav-logo">
+<div class="nav-logo-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+<circle cx="12" cy="12" r="10"/>
+<path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+</svg>
+</div>
+<div class="nav-logo-text">HHL<span>Giám sát môi trường đô thị</span></div>
+</a>
+<nav class="nav-menu">
+<a href="{% url 'home' %}" class="nav-link">Bản Đồ</a>
+<a href="{% url 'analysis' %}" class="nav-link">Phân Tích</a>
+<a href="{% url 'alert' %}" class="nav-link">Cảnh Báo</a>
+<a href="{% url 'report' %}" class="nav-link active">Báo Cáo</a>
+<a href="{% url 'forecast' %}" class="nav-link">Dự Báo</a>
+<a href="{% url 'feedback' %}" class="nav-link">Góp Ý</a>
+<a href="{% url 'about' %}" class="nav-link">Giới Thiệu</a>
+</nav>
+<div class="nav-right">
+{% if user.is_authenticated %}
+<a href="{% url 'dashboard' %}" style="text-decoration:none;">
+<div class="nav-user">
+<div class="nav-avatar">{{ user.username|first|upper }}</div>
+<span class="nav-username">{{ user.username }}</span>
+</div>
+</a>
+{% if user.profile.is_admin %}
+<a href="{% url 'dashboard' %}" class="nav-btn-login">Dashboard</a>
+{% else %}
+<form method="POST" action="{% url 'logout' %}" style="margin:0">
+{% csrf_token %}
+<button type="submit" class="nav-btn-logout">Đăng xuất</button>
+</form>
+{% endif %}
+{% endif %}
+</div>
+</nav>
+
+<div class="page-header">
+<div>
+<div class="page-title">Báo Cáo <span>Tổng Hợp</span></div>
+<div class="page-subtitle" id="reportPeriod">30 ngày gần nhất</div>
+</div>
+<button class="btn-export" id="btnExport" onclick="exportExcel()" title="Xuất toàn bộ số liệu ra file Excel">📊 Xuất Excel</button>
+<button class="btn-print" onclick="window.print()">🖨 In báo cáo</button>
+</div>
+
+<div class="stat-grid">
+<div class="stat-card"><div class="stat-icon">💨</div><div class="stat-val" id="statAirRecords">--</div><div class="stat-label">Bản ghi không khí</div></div>
+<div class="stat-card"><div class="stat-icon">🌡</div><div class="stat-val" id="statUhiRecords">--</div><div class="stat-label">Bản ghi nhiệt đô thị</div></div>
+<div class="stat-card"><div class="stat-icon">💧</div><div class="stat-val" id="statWaterRecords">--</div><div class="stat-label">Bản ghi chất lượng nước</div></div>
+<div class="stat-card"><div class="stat-icon">🔔</div><div class="stat-val" id="statAlerts">--</div><div class="stat-label">Cảnh báo đã phát</div></div>
+<div class="stat-card"><div class="stat-icon">📝</div><div class="stat-val" id="statFeedbacks">--</div><div class="stat-label">Phản ánh cộng đồng</div></div>
+<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-val" id="statResolved">--</div><div class="stat-label">Phản ánh đã xử lý</div></div>
+</div>
+
+<!-- CHART XU HƯỚNG -->
+<div class="trend-charts" style="margin:0 24px 20px">
+<div class="trend-chart-card">
+<div class="trend-chart-title">📈 Xu hướng AQI 30 ngày</div>
+<div style="position:relative;height:160px"><canvas id="chartTrendAqi"></canvas></div>
+</div>
+<div class="trend-chart-card">
+<div class="trend-chart-title">🌡 Xu hướng LST 30 ngày</div>
+<div style="position:relative;height:160px"><canvas id="chartTrendLst"></canvas></div>
+</div>
+</div>
+
+<div class="report-layout">
+<div class="report-main">
+
+<div class="report-section">
+<div class="report-section-title">💨 Chất lượng không khí — So sánh ngưỡng WHO</div>
+<div class="index-grid">
+<div class="index-card">
+<div class="index-label">PM2.5 TB</div>
+<div class="index-val" id="avgPm25">-- <span>µg/m³</span></div>
+<div class="index-bar"><div class="index-bar-fill" id="barPm25" style="background:#EF233C;width:0%"></div></div>
+<div class="index-note" id="notePm25">Ngưỡng WHO: 25 µg/m³</div>
+</div>
+<div class="index-card">
+<div class="index-label">NO₂ TB</div>
+<div class="index-val" id="avgNo2">-- <span>µg/m³</span></div>
+<div class="index-bar"><div class="index-bar-fill" id="barNo2" style="background:#00B4D8;width:0%"></div></div>
+<div class="index-note">Ngưỡng WHO: 40 µg/m³</div>
+</div>
+<div class="index-card">
+<div class="index-label">CO TB</div>
+<div class="index-val" id="avgCo">-- <span>µg/m³</span></div>
+<div class="index-bar"><div class="index-bar-fill" id="barCo" style="background:#FFD60A;width:0%"></div></div>
+<div class="index-note">Nguồn: OpenWeather</div>
+</div>
+</div>
+</div>
+
+<div class="report-section">
+<div class="report-section-title">🌡 Đảo nhiệt đô thị (UHI) — LST & NDVI</div>
+<div class="index-grid">
+<div class="index-card">
+<div class="index-label">LST TB</div>
+<div class="index-val" id="avgLst">-- <span>°C</span></div>
+<div class="index-bar"><div class="index-bar-fill" id="barLst" style="background:#FF6B6B;width:0%"></div></div>
+<div class="index-note" id="noteLst">Landsat 8/9 · Ngưỡng UHI: 35°C</div>
+</div>
+<div class="index-card">
+<div class="index-label">NDVI TB</div>
+<div class="index-val" id="avgNdvi">--</div>
+<div class="index-bar"><div class="index-bar-fill" id="barNdvi" style="background:#06D6A0;width:0%"></div></div>
+<div class="index-note" id="noteNdvi">Sentinel-2 · Cây xanh đô thị</div>
+</div>
+<div class="index-card">
+<div class="index-label">NDWI TB</div>
+<div class="index-val" id="avgNdwi">--</div>
+<div class="index-bar"><div class="index-bar-fill" id="barNdwi" style="background:#0077B6;width:0%"></div></div>
+<div class="index-note">Sentinel-2 · Chỉ số nước</div>
+</div>
+</div>
+</div>
+
+<div class="report-section">
+<div class="report-section-title">📡 Số liệu hiện tại (OpenWeather)</div>
+<div class="current-grid">
+<div class="current-item"><div class="current-icon">🌡</div><div class="current-val" id="curTemp">--°C</div><div class="current-label">Nhiệt độ</div></div>
+<div class="current-item"><div class="current-icon">💧</div><div class="current-val" id="curHumidity">--%</div><div class="current-label">Độ ẩm</div></div>
+<div class="current-item"><div class="current-icon">😷</div><div class="current-val" id="curAqi">--</div><div class="current-label">AQI</div></div>
+<div class="current-item"><div class="current-icon">🌫</div><div class="current-val" id="curPm25">-- µg/m³</div><div class="current-label">PM2.5</div></div>
+</div>
+</div>
+
+</div>
+
+<div class="report-sidebar">
+<div class="sidebar-card">
+<div class="sidebar-card-title">📋 Thông tin báo cáo</div>
+<div class="info-row"><span>Khu vực</span><span>TP. Hồ Chí Minh</span></div>
+<div class="info-row"><span>Nguồn dữ liệu</span><span>GEE + OWM</span></div>
+<div class="info-row"><span>Vệ tinh</span><span>Sentinel · Landsat</span></div>
+<div class="info-row"><span>Cập nhật</span><span id="infoUpdated">--</span></div>
+</div>
+<div class="sidebar-card">
+<div class="sidebar-card-title">🔍 Đánh giá tự động</div>
+<div id="evalList" style="display:flex;flex-direction:column;gap:8px">
+<div style="color:#90B8D4;font-size:12px">Đang tải...</div>
+</div>
+</div>
+<div class="sidebar-card">
+<div class="sidebar-card-title">📎 Nguồn dữ liệu</div>
+<div class="source-item"><span class="source-dot" style="background:#EF233C"></span><span>OpenWeatherMap API</span></div>
+<div class="source-item"><span class="source-dot" style="background:#06D6A0"></span><span>Google Earth Engine</span></div>
+<div class="source-item"><span class="source-dot" style="background:#00B4D8"></span><span>Sentinel-2 / Sentinel-5P</span></div>
+<div class="source-item"><span class="source-dot" style="background:#FF6B6B"></span><span>Landsat 8 / Landsat 9</span></div>
+</div>
+</div>
+</div>
+
+<!-- NHẬN XÉT NGHIÊN CỨU SINH -->
+<div class="research-note-section">
+<div class="research-note-title">
+📝 Nhận xét & Bổ sung của nghiên cứu sinh
+</div>
+<div class="research-note-sub">Nghiên cứu sinh có thể bổ sung phân tích, nhận xét chuyên môn vào báo cáo này</div>
+
+<div class="note-form">
+<textarea id="noteInput" placeholder="Nhập nhận xét, phân tích chuyên môn của bạn về tình trạng môi trường TPHCM..." maxlength="1000" oninput="updateChar()"></textarea>
+<div class="note-form-footer">
+<span class="note-char" id="charCount">0 / 1000 ký tự</span>
+<button class="note-submit" onclick="submitNote()">📤 Gửi nhận xét</button>
+</div>
+</div>
+
+<div class="notes-list" id="notesList">
+<div style="color:#90B8D4;font-size:12px;text-align:center;padding:12px">Chưa có nhận xét nào</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+Chart.defaults.font.family = "'DM Sans', 'Segoe UI', sans-serif";
+Chart.defaults.color = '#90B8D4';
+
+const trendOpts = {
+responsive: true, maintainAspectRatio: false,
+plugins: { legend: { display: false }, tooltip: { backgroundColor: '#fff', titleColor: '#03045E', bodyColor: '#5A8DB8', borderColor: 'rgba(0,180,216,0.2)', borderWidth: 1, padding: 8, cornerRadius: 8 } },
+scales: {
+x: { display: false },
+y: { grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 9 }, maxTicksLimit: 4 } }
+}
+};
+
+// Mock trend data 30 ngày
+const days30 = Array.from({length: 30}, (_, i) => {
+const d = new Date(); d.setDate(d.getDate() - (29 - i));
+return d.getDate() + '/' + (d.getMonth()+1);
+});
+const aqiTrend  = Array.from({length: 30}, () => Math.round(65 + Math.random() * 30));
+const lstTrend  = Array.from({length: 30}, () => Math.round((30 + Math.random() * 8) * 10) / 10);
+
+const chartTrendAqi = new Chart(document.getElementById('chartTrendAqi'), {
+type: 'line',
+data: { labels: days30, datasets: [{ data: aqiTrend, borderColor: '#FFD60A', backgroundColor: 'rgba(255,214,10,0.1)', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true }] },
+options: trendOpts
+});
+const chartTrendLst = new Chart(document.getElementById('chartTrendLst'), {
+type: 'line',
+data: { labels: days30, datasets: [{ data: lstTrend, borderColor: '#FF6B6B', backgroundColor: 'rgba(255,107,107,0.1)', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: true }] },
+options: trendOpts
+});
+
+let _reportData = null; // lưu data API để exportExcel dùng
+
+// Nhận xét nghiên cứu sinh — lưu local
+let notes = JSON.parse(localStorage.getItem('reportNotes') || '[]');
+const username = "{{ user.username }}";
+
+function updateChar() {
+document.getElementById('charCount').textContent = document.getElementById('noteInput').value.length + ' / 1000 ký tự';
+}
+
+function submitNote() {
+const text = document.getElementById('noteInput').value.trim();
+if (!text) return;
+const note = { author: username, time: new Date().toLocaleString('vi-VN'), content: text };
+notes.unshift(note);
+localStorage.setItem('reportNotes', JSON.stringify(notes.slice(0, 20)));
+document.getElementById('noteInput').value = '';
+updateChar();
+renderNotes();
+}
+
+function renderNotes() {
+if (!notes.length) {
+document.getElementById('notesList').innerHTML = '<div style="color:#90B8D4;font-size:12px;text-align:center;padding:12px">Chưa có nhận xét nào</div>';
+return;
+}
+document.getElementById('notesList').innerHTML = notes.map(n => `
+<div class="note-item">
+<div class="note-item-header">
+    <div class="note-item-author">
+    <div class="note-item-avatar">${n.author ? n.author[0].toUpperCase() : 'R'}</div>
+    ${n.author || 'Nghiên cứu sinh'}
+    </div>
+    <span class="note-item-time">${n.time}</span>
+</div>
+<div class="note-item-content">${n.content}</div>
+</div>`).join('');
+}
+
+async function loadReport() {
+try {
+const json = await (await fetch('/api/report/')).json();
+if (!json.success) return;
+_reportData = json;
+const s = json.stats, a = json.averages, c = json.current;
+document.getElementById('statAirRecords').textContent   = s.air_records;
+document.getElementById('statUhiRecords').textContent   = s.uhi_records;
+document.getElementById('statWaterRecords').textContent = s.water_records;
+document.getElementById('statAlerts').textContent       = s.alerts;
+document.getElementById('statFeedbacks').textContent    = s.feedbacks;
+document.getElementById('statResolved').textContent     = s.fb_resolved;
+document.getElementById('reportPeriod').textContent     = json.period;
+document.getElementById('avgPm25').innerHTML = `${a.pm25} <span>µg/m³</span>`;
+document.getElementById('avgNo2').innerHTML  = `${a.no2} <span>µg/m³</span>`;
+document.getElementById('avgCo').innerHTML   = `${a.co} <span>µg/m³</span>`;
+document.getElementById('avgLst').innerHTML  = `${a.lst} <span>°C</span>`;
+document.getElementById('avgNdvi').textContent = a.ndvi;
+document.getElementById('avgNdwi').textContent = a.ndwi;
+document.getElementById('barPm25').style.width = Math.min(100, (a.pm25 / 75) * 100) + '%';
+document.getElementById('barNo2').style.width  = Math.min(100, (a.no2  / 80) * 100) + '%';
+document.getElementById('barCo').style.width   = Math.min(100, (a.co   / 1000) * 100) + '%';
+document.getElementById('barLst').style.width  = Math.min(100, ((a.lst - 20) / 25) * 100) + '%';
+document.getElementById('barNdvi').style.width = Math.min(100, ((a.ndvi + 1) / 2) * 100) + '%';
+document.getElementById('barNdwi').style.width = Math.min(100, ((a.ndwi + 1) / 2) * 100) + '%';
+document.getElementById('curTemp').textContent     = c.temp + '°C';
+document.getElementById('curHumidity').textContent = c.humidity + '%';
+document.getElementById('curAqi').textContent      = c.aqi;
+document.getElementById('curPm25').textContent     = c.pm25 + ' µg/m³';
+const now = new Date();
+document.getElementById('infoUpdated').textContent =
+    String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0') + '/' + now.getFullYear();
+
+// Chú thích chi tiết
+if (a.pm25 > 0) document.getElementById('notePm25').textContent =
+    a.pm25 > 25 ? `⚠ Vượt ${((a.pm25/25-1)*100).toFixed(0)}% ngưỡng WHO` : `✅ Đạt ngưỡng WHO (25 µg/m³)`;
+if (a.lst > 0) document.getElementById('noteLst').textContent =
+    a.lst > 35 ? `⚠ UHI cao — vượt ${(a.lst-35).toFixed(1)}°C ngưỡng` : `✅ Nhiệt bề mặt bình thường`;
+if (a.ndvi > 0) document.getElementById('noteNdvi').textContent =
+    a.ndvi < 0.2 ? `⚠ Mảng xanh thấp — cần tăng cường` : a.ndvi > 0.4 ? `✅ Mảng xanh tốt` : `ℹ Mảng xanh trung bình`;
+
+const evals = [];
+if (a.pm25 > 25) evals.push({ icon:'⚠️', text:`PM2.5 ${a.pm25} µg/m³ vượt ngưỡng WHO ${((a.pm25/25-1)*100).toFixed(0)}%`, color:'#EF233C' });
+else evals.push({ icon:'✅', text:`PM2.5 ${a.pm25} µg/m³ — an toàn`, color:'#06D6A0' });
+if (a.lst > 35) evals.push({ icon:'🌡', text:`LST ${a.lst}°C — nguy cơ UHI. NDVI ${a.ndvi} cần tăng cây xanh`, color:'#FF6B6B' });
+else evals.push({ icon:'🌡', text:`LST ${a.lst}°C — nhiệt bề mặt bình thường`, color:'#90B8D4' });
+if (a.ndvi < 0.2) evals.push({ icon:'🌿', text:`NDVI ${a.ndvi} rất thấp — thiếu mảng xanh nghiêm trọng`, color:'#EF233C' });
+else if (a.ndvi > 0.3) evals.push({ icon:'🌿', text:`NDVI ${a.ndvi} — mảng xanh khá tốt`, color:'#06D6A0' });
+
+document.getElementById('evalList').innerHTML = evals.map(e =>
+`<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-left:3px solid ${e.color};background:#F8FCFE;border-radius:0 8px 8px 0;font-size:12px;color:#03045E;line-height:1.4">
+<span>${e.icon}</span><span>${e.text}</span></div>`).join('');
+} catch(e) { console.warn('Report error:', e); }
+}
+
+function exportExcel() {
+  if (!_reportData) { alert('Dữ liệu chưa tải xong, vui lòng thử lại.'); return; }
+  const btn = document.getElementById('btnExport');
+  btn.disabled = true; btn.textContent = '⏳ Đang xuất...';
+
+  const wb = XLSX.utils.book_new();
+  const s = _reportData.stats, a = _reportData.averages, c = _reportData.current;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('vi-VN') + ' ' + now.toLocaleTimeString('vi-VN');
+
+  /* ── Sheet 1: Tổng quan ── */
+  const sheet1 = XLSX.utils.aoa_to_sheet([
+    ['BÁO CÁO TỔNG HỢP MÔI TRƯỜNG TP. HỒ CHÍ MINH'],
+    [],
+    ['Khu vực', 'TP. Hồ Chí Minh'],
+    ['Chu kỳ báo cáo', _reportData.period],
+    ['Ngày xuất', dateStr],
+    ['Nguồn dữ liệu', 'Google Earth Engine + OpenWeatherMap'],
+    ['Vệ tinh', 'Sentinel-2, Sentinel-5P, Landsat 8/9'],
+    [],
+    ['THỐNG KÊ TỔNG HỢP (30 NGÀY GẦN NHẤT)'],
+    ['Chỉ tiêu', 'Số lượng'],
+    ['Bản ghi chất lượng không khí', s.air_records],
+    ['Bản ghi nhiệt đô thị (UHI)', s.uhi_records],
+    ['Bản ghi chất lượng nước', s.water_records],
+    ['Cảnh báo đã phát', s.alerts],
+    ['Phản ánh cộng đồng', s.feedbacks],
+    ['Phản ánh đã xử lý', s.fb_resolved],
+    ['Tỉ lệ xử lý phản ánh (%)', s.feedbacks > 0 ? ((s.fb_resolved / s.feedbacks) * 100).toFixed(1) : 0],
+  ]);
+  sheet1['!cols'] = [{ wch: 40 }, { wch: 30 }];
+  XLSX.utils.book_append_sheet(wb, sheet1, 'Tổng quan');
+
+  /* ── Sheet 2: Chỉ số trung bình ── */
+  const sheet2 = XLSX.utils.aoa_to_sheet([
+    ['CHỈ SỐ TRUNG BÌNH 30 NGÀY — TP. HỒ CHÍ MINH'],
+    [],
+    ['CHẤT LƯỢNG KHÔNG KHÍ'],
+    ['Chỉ số', 'Giá trị', 'Đơn vị', 'Ngưỡng WHO', 'Trạng thái'],
+    ['PM2.5 trung bình', a.pm25, 'µg/m³', 25, a.pm25 > 25 ? 'VƯỢT NGƯỠNG' : 'An toàn'],
+    ['NO₂ trung bình', a.no2, 'µg/m³', 40, a.no2 > 40 ? 'VƯỢT NGƯỠNG' : 'An toàn'],
+    ['CO trung bình', a.co, 'µg/m³', '-', '-'],
+    [],
+    ['NHIỆT ĐỘ & THẢM THỰC VẬT (UHI)'],
+    ['Chỉ số', 'Giá trị', 'Đơn vị', 'Ngưỡng', 'Trạng thái'],
+    ['LST (Nhiệt bề mặt) TB', a.lst, '°C', 35, a.lst > 35 ? 'NGUY CƠ UHI' : 'Bình thường'],
+    ['NDVI (Thảm thực vật) TB', a.ndvi, '', 0.3, a.ndvi < 0.2 ? 'RẤT THẤP' : a.ndvi >= 0.3 ? 'Tốt' : 'Trung bình'],
+    ['NDWI (Chỉ số nước) TB', a.ndwi, '', '-', '-'],
+  ]);
+  sheet2['!cols'] = [{ wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, sheet2, 'Chỉ số trung bình');
+
+  /* ── Sheet 3: Dữ liệu hiện tại ── */
+  const sheet3 = XLSX.utils.aoa_to_sheet([
+    ['DỮ LIỆU THỜI TIẾT HIỆN TẠI — OPENWEATHERMAP'],
+    ['Thời điểm', dateStr],
+    [],
+    ['Chỉ số', 'Giá trị', 'Đơn vị'],
+    ['Nhiệt độ', c.temp, '°C'],
+    ['Độ ẩm', c.humidity, '%'],
+    ['AQI', c.aqi, ''],
+    ['PM2.5', c.pm25, 'µg/m³'],
+  ]);
+  sheet3['!cols'] = [{ wch: 20 }, { wch: 14 }, { wch: 10 }];
+  XLSX.utils.book_append_sheet(wb, sheet3, 'Dữ liệu hiện tại');
+
+  /* ── Sheet 4: Đánh giá tự động ── */
+  const evals = [];
+  if (a.pm25 > 25) evals.push(['Không khí', '⚠ VƯỢT NGƯỠNG', `PM2.5 ${a.pm25} µg/m³ vượt ngưỡng WHO ${((a.pm25/25-1)*100).toFixed(0)}%`]);
+  else evals.push(['Không khí', '✅ AN TOÀN', `PM2.5 ${a.pm25} µg/m³ đạt ngưỡng WHO`]);
+  if (a.lst > 35) evals.push(['Nhiệt đô thị', '⚠ NGUY CƠ UHI', `LST ${a.lst}°C vượt ngưỡng 35°C — cần tăng cây xanh`]);
+  else evals.push(['Nhiệt đô thị', '✅ BÌNH THƯỜNG', `LST ${a.lst}°C — nhiệt bề mặt trong ngưỡng`]);
+  if (a.ndvi < 0.2) evals.push(['Thảm thực vật', '⚠ RẤT THẤP', `NDVI ${a.ndvi} — thiếu mảng xanh nghiêm trọng`]);
+  else if (a.ndvi >= 0.3) evals.push(['Thảm thực vật', '✅ KHÁ TỐT', `NDVI ${a.ndvi} — mảng xanh đạt yêu cầu`]);
+  else evals.push(['Thảm thực vật', 'ℹ TRUNG BÌNH', `NDVI ${a.ndvi} — cần cải thiện thêm`]);
+
+  const sheet4 = XLSX.utils.aoa_to_sheet([
+    ['ĐÁNH GIÁ TỰ ĐỘNG HỆ THỐNG'],
+    [],
+    ['Lĩnh vực', 'Mức độ', 'Chi tiết'],
+    ...evals,
+  ]);
+  sheet4['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 55 }];
+  XLSX.utils.book_append_sheet(wb, sheet4, 'Đánh giá');
+
+  /* ── Sheet 5: Nhận xét nghiên cứu sinh ── */
+  const noteRows = notes.length
+    ? notes.map(n => [n.author || 'Nghiên cứu sinh', n.time, n.content])
+    : [['(Chưa có nhận xét)', '', '']];
+  const sheet5 = XLSX.utils.aoa_to_sheet([
+    ['NHẬN XÉT & BỔ SUNG CỦA NGHIÊN CỨU SINH'],
+    [],
+    ['Tác giả', 'Thời gian', 'Nội dung'],
+    ...noteRows,
+  ]);
+  sheet5['!cols'] = [{ wch: 20 }, { wch: 22 }, { wch: 70 }];
+  XLSX.utils.book_append_sheet(wb, sheet5, 'Nhận xét');
+
+  /* ── Xuất file ── */
+  const filename = `BaoCaoMoiTruong_TPHCM_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb, filename);
+
+  btn.disabled = false; btn.textContent = '📊 Xuất Excel';
+}
+
+renderNotes();
+loadReport();
+</script>
+</body>
+</html>

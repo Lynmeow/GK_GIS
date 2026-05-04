@@ -1,0 +1,107 @@
+{% extends 'webgis/admin/base_admin.html' %}
+{% block title %}Xét duyệt đề xuất{% endblock %}
+{% block breadcrumb %}Đề xuất{% endblock %}
+
+{% block content %}
+<div class="page-header animate-up">
+    <div>
+        <div class="page-title">💡 Xét duyệt đề xuất</div>
+        <div class="page-subtitle">Xem xét và phê duyệt đề xuất từ Nhà nghiên cứu</div>
+    </div>
+</div>
+
+<div class="table-card animate-up">
+    <div class="table-header">
+        <div class="table-title">Danh sách đề xuất ({{ proposals|length }})</div>
+        <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="filterProposals('all')">Tất cả</button>
+            <button class="btn btn-ghost btn-sm" onclick="filterProposals('pending')" style="color:#c9a800;border-color:rgba(255,214,10,0.3)">⏳ Chờ duyệt</button>
+            <button class="btn btn-ghost btn-sm" onclick="filterProposals('approved')" style="color:#00a896;border-color:rgba(6,214,160,0.3)">✅ Đã duyệt</button>
+            <button class="btn btn-ghost btn-sm" onclick="filterProposals('rejected')" style="color:var(--danger);border-color:rgba(239,35,60,0.2)">❌ Từ chối</button>
+        </div>
+    </div>
+
+    <div style="padding:8px 16px">
+        {% for p in proposals %}
+        <div class="proposal-card" data-status="{{ p.status }}" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:16px;margin-bottom:10px;transition:var(--transition)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:34px;height:34px;background:linear-gradient(135deg,#00B4D8,#0077B6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">
+                        {{ p.user.username|first|upper }}
+                    </div>
+                    <div>
+                        <div style="font-weight:600;font-size:13px;color:var(--dark-navy)">{{ p.user.username }}</div>
+                        <div style="font-size:11px;color:var(--text-muted)">{{ p.created_at|date:"d/m/Y H:i" }}</div>
+                    </div>
+                </div>
+
+                <!-- Badge + nút Hoàn tác -->
+                <div style="display:flex;align-items:center;gap:8px">
+                    {% if p.status == 'pending' %}
+                        <span class="badge badge-pending">⏳ Chờ duyệt</span>
+                    {% elif p.status == 'approved' %}
+                        <span class="badge badge-approved">✅ Đã duyệt</span>
+                        <form method="POST" action="{% url 'admin_proposal_revert' p.id %}" style="display:inline">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="btn btn-ghost btn-sm"
+                                    style="font-size:11px;padding:3px 10px;color:var(--text-muted)"
+                                    onclick="return confirm('Hoàn tác về Chờ duyệt? Thao tác này sẽ được ghi vào audit log.')">
+                                ↩ Hoàn tác
+                            </button>
+                        </form>
+                    {% else %}
+                        <span class="badge badge-rejected">❌ Từ chối</span>
+                        <form method="POST" action="{% url 'admin_proposal_revert' p.id %}" style="display:inline">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="btn btn-ghost btn-sm"
+                                    style="font-size:11px;padding:3px 10px;color:var(--text-muted)"
+                                    onclick="return confirm('Hoàn tác về Chờ duyệt? Thao tác này sẽ được ghi vào audit log.')">
+                                ↩ Hoàn tác
+                            </button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div style="font-size:13px;color:var(--text-primary);line-height:1.6;margin-bottom:10px">
+                {{ p.solution }}
+            </div>
+
+            {% if p.admin_note %}
+            <div style="background:rgba(0,180,216,0.06);border-radius:var(--radius-sm);padding:10px;font-size:12px;color:var(--text-muted);margin-bottom:10px">
+                💬 Phản hồi admin: {{ p.admin_note }}
+            </div>
+            {% endif %}
+
+            {% if p.status == 'pending' %}
+            <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+                <form method="POST" action="{% url 'admin_proposal_review' p.id %}">
+                    {% csrf_token %}
+                    <textarea name="note" class="form-control" rows="2" placeholder="Ghi chú phản hồi (tuỳ chọn)..." style="margin-bottom:10px;font-size:13px"></textarea>
+                    <div style="display:flex;gap:8px">
+                        <button type="submit" name="action" value="approved" class="btn btn-success btn-sm">✅ Duyệt</button>
+                        <button type="submit" name="action" value="rejected" class="btn btn-danger btn-sm">❌ Từ chối</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <p>Chưa có đề xuất nào</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function filterProposals(status) {
+    document.querySelectorAll('.proposal-card').forEach(card => {
+        card.style.display = (status === 'all' || card.dataset.status === status) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

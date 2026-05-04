@@ -1,0 +1,190 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 – Không tìm thấy trang</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --primary:      #00B4D8;
+  --primary-dark: #0077B6;
+  --navy:         #03045E;
+  --mid:          #023E8A;
+  --muted:        #5A8DB8;
+  --light:        #90B8D4;
+  --bg:           #F0F9FF;
+  --border:       rgba(0,180,216,0.2);
+  --warning:      #FFD60A;
+}
+html, body {
+  height: 100%; font-family: 'Inter', sans-serif;
+  background: var(--bg); color: var(--navy);
+}
+body {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100vh; padding: 24px;
+}
+
+.blob {
+  position: fixed; border-radius: 50%; filter: blur(90px); opacity: 0.10; pointer-events: none; z-index: 0;
+}
+.blob-1 { width: 460px; height: 460px; background: var(--primary); top: -140px; left: -100px; }
+.blob-2 { width: 340px; height: 340px; background: var(--warning); bottom: -80px; right: -80px; }
+
+.card {
+  position: relative; z-index: 1;
+  background: #fff; border-radius: 24px;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 20px 60px rgba(3,4,94,0.10);
+  padding: 56px 48px 48px;
+  max-width: 480px; width: 100%; text-align: center;
+}
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0,180,216,0.08); color: var(--primary-dark);
+  border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  margin-bottom: 28px;
+}
+
+.search-icon {
+  width: 64px; height: 64px;
+  background: rgba(0,180,216,0.08);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px; font-size: 28px;
+}
+
+.code {
+  font-size: 96px; font-weight: 800; line-height: 1;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; margin-bottom: 8px;
+}
+
+.title {
+  font-size: 22px; font-weight: 700; color: var(--navy);
+  margin-bottom: 10px;
+}
+.sub {
+  font-size: 14px; color: var(--muted); line-height: 1.6;
+  margin-bottom: 10px;
+}
+.path-box {
+  display: inline-block;
+  background: rgba(0,180,216,0.06);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 12px; font-family: 'Courier New', monospace;
+  color: var(--muted); word-break: break-all;
+  margin-bottom: 24px;
+}
+
+.actions {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 22px; border-radius: 10px;
+  font-size: 13px; font-weight: 600; text-decoration: none;
+  border: none; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-dark), var(--navy));
+  color: #fff;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,119,182,0.35); }
+.btn-outline {
+  background: #fff; color: var(--muted);
+  border: 1.5px solid var(--border);
+}
+.btn-outline:hover { border-color: var(--primary); color: var(--primary-dark); }
+
+.divider { height: 1px; background: var(--border); margin-bottom: 20px; }
+
+.quick-links {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+}
+.quick-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border-radius: 8px;
+  font-size: 12px; font-weight: 500; text-decoration: none;
+  color: var(--muted); border: 1px solid var(--border);
+  transition: all 0.18s;
+}
+.quick-link:hover { border-color: var(--primary); color: var(--primary-dark); background: rgba(0,180,216,0.05); }
+.quick-link-label {
+  font-size: 11px; color: var(--light);
+  margin-bottom: 10px; font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="card">
+  <div class="badge">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <circle cx="11" cy="11" r="8"/>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    LỖI 404 · NOT FOUND
+  </div>
+
+  <div class="search-icon">🗺</div>
+
+  <div class="code">404</div>
+
+  <div class="title">Không tìm thấy trang</div>
+  <div class="sub">Trang bạn đang tìm kiếm không tồn tại,<br>đã bị di chuyển hoặc nhập sai địa chỉ.</div>
+
+  {% if request.path %}
+  <div class="path-box">{{ request.path }}</div>
+  {% endif %}
+
+  <div class="actions">
+    <a href="{% url 'home' %}" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      Về trang chủ
+    </a>
+    <a href="javascript:history.back()" class="btn btn-outline">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Quay lại
+    </a>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="quick-link-label">Bạn có thể thử các trang sau</div>
+  <div class="quick-links">
+    {% if user.is_authenticated %}
+    <a href="{% url 'analysis' %}" class="quick-link">📊 Phân tích</a>
+    <a href="{% url 'alert' %}" class="quick-link">🔔 Cảnh báo</a>
+    <a href="{% url 'forecast' %}" class="quick-link">🌤 Dự báo</a>
+    <a href="{% url 'report' %}" class="quick-link">📋 Báo cáo</a>
+    {% else %}
+    <a href="{% url 'login' %}" class="quick-link">🔑 Đăng nhập</a>
+    {% endif %}
+    <a href="{% url 'stations_route' %}" class="quick-link">📍 Tìm trạm</a>
+    <a href="{% url 'about' %}" class="quick-link">ℹ Giới thiệu</a>
+  </div>
+</div>
+
+</body>
+</html>

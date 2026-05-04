@@ -1,0 +1,178 @@
+{% extends 'webgis/admin/base_admin.html' %}
+{% block title %}Quản lý trang Giới thiệu{% endblock %}
+{% block breadcrumb %}Trang Giới thiệu{% endblock %}
+
+{% block extra_head %}
+<style>
+.edit-section { background:#fff; border:1px solid var(--border); border-radius:var(--radius-md); margin-bottom:16px; overflow:hidden; }
+.edit-section-label { padding:10px 16px; background:rgba(0,180,216,0.05); border-bottom:1px solid var(--border); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--primary); }
+.edit-section-body { padding:16px 20px; }
+.inline-field { width:100%; font-family:'Inter',sans-serif; font-size:13px; color:var(--text-primary); border:1.5px dashed transparent; border-radius:6px; padding:7px 10px; background:transparent; transition:all 0.15s; resize:none; line-height:1.6; }
+.inline-field:hover { border-color:rgba(0,180,216,0.3); background:rgba(0,180,216,0.02); }
+.inline-field:focus { border-color:var(--primary); background:#fff; outline:none; box-shadow:0 0 0 3px rgba(0,180,216,0.08); }
+.fl { font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.cg { border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:12px; }
+.cg:last-child { margin-bottom:0; }
+.cg-title { font-size:12px; font-weight:600; color:var(--primary); margin-bottom:10px; }
+.save-bar { position:sticky; bottom:0; background:#fff; border-top:1px solid var(--border); padding:14px 0; display:flex; justify-content:space-between; align-items:center; z-index:10; box-shadow:0 -4px 16px rgba(0,0,0,0.06); margin-top:8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-up">
+    <div>
+        <div class="page-title">📝 Trang Giới thiệu</div>
+        <div class="page-subtitle">Click vào nội dung để chỉnh sửa trực tiếp</div>
+    </div>
+    <a href="/about/" target="_blank" class="btn btn-ghost">👁️ Xem trang About</a>
+</div>
+
+{% if messages %}{% for msg in messages %}
+<div style="margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:13px;{% if msg.tags == 'success' %}background:rgba(6,214,160,0.08);color:#00a896;border:1px solid rgba(6,214,160,0.2);{% else %}background:rgba(239,35,60,0.08);color:var(--danger);border:1px solid rgba(239,35,60,0.2);{% endif %}">{{ msg }}</div>
+{% endfor %}{% endif %}
+
+<form method="POST" action="{% url 'admin_about_edit' %}" class="animate-up">
+{% csrf_token %}
+
+<div class="edit-section">
+    <div class="edit-section-label">🦸 Hero — mô tả hệ thống</div>
+    <div class="edit-section-body">
+        <textarea name="hero_subtitle" class="inline-field" rows="3" placeholder="Mô tả ngắn hiển thị bên dưới tiêu đề hero...">{{ c.hero_subtitle }}</textarea>
+    </div>
+</div>
+
+<div class="edit-section">
+    <div class="edit-section-label">🎯 Mục tiêu</div>
+    <div class="edit-section-body">
+        <div class="fl" style="margin-bottom:6px">Đoạn mô tả chính</div>
+        <textarea name="about_desc" class="inline-field" rows="3" placeholder="Tại sao xây dựng hệ thống này?...">{{ c.about_desc }}</textarea>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+            <div class="cg">
+                <div class="cg-title">Card 1</div>
+                <div class="fl">Tiêu đề</div>
+                <input type="text" name="mission1_title" class="inline-field" value="{{ c.mission1_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div>
+                <textarea name="mission1_desc" class="inline-field" rows="2">{{ c.mission1_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Card 2</div>
+                <div class="fl">Tiêu đề</div>
+                <input type="text" name="mission2_title" class="inline-field" value="{{ c.mission2_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div>
+                <textarea name="mission2_desc" class="inline-field" rows="2">{{ c.mission2_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Card 3</div>
+                <div class="fl">Tiêu đề</div>
+                <input type="text" name="mission3_title" class="inline-field" value="{{ c.mission3_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div>
+                <textarea name="mission3_desc" class="inline-field" rows="2">{{ c.mission3_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Card 4</div>
+                <div class="fl">Tiêu đề</div>
+                <input type="text" name="mission4_title" class="inline-field" value="{{ c.mission4_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div>
+                <textarea name="mission4_desc" class="inline-field" rows="2">{{ c.mission4_desc }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="edit-section">
+    <div class="edit-section-label">🗂️ Module chức năng</div>
+    <div class="edit-section-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="cg">
+                <div class="cg-title">Module 1</div>
+                <div class="fl">Tên</div><input type="text" name="module1_title" class="inline-field" value="{{ c.module1_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><textarea name="module1_desc" class="inline-field" rows="2">{{ c.module1_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Module 2</div>
+                <div class="fl">Tên</div><input type="text" name="module2_title" class="inline-field" value="{{ c.module2_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><textarea name="module2_desc" class="inline-field" rows="2">{{ c.module2_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Module 3</div>
+                <div class="fl">Tên</div><input type="text" name="module3_title" class="inline-field" value="{{ c.module3_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><textarea name="module3_desc" class="inline-field" rows="2">{{ c.module3_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Module 4</div>
+                <div class="fl">Tên</div><input type="text" name="module4_title" class="inline-field" value="{{ c.module4_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><textarea name="module4_desc" class="inline-field" rows="2">{{ c.module4_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Module 5</div>
+                <div class="fl">Tên</div><input type="text" name="module5_title" class="inline-field" value="{{ c.module5_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><textarea name="module5_desc" class="inline-field" rows="2">{{ c.module5_desc }}</textarea>
+            </div>
+            <div class="cg">
+                <div class="cg-title">Module 6</div>
+                <div class="fl">Tên</div><input type="text" name="module6_title" class="inline-field" value="{{ c.module6_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><textarea name="module6_desc" class="inline-field" rows="2">{{ c.module6_desc }}</textarea>
+            </div>
+            <div class="cg" style="grid-column:1/-1">
+                <div class="cg-title">Module 7</div>
+                <div class="fl">Tên</div><input type="text" name="module7_title" class="inline-field" value="{{ c.module7_title }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><textarea name="module7_desc" class="inline-field" rows="2">{{ c.module7_desc }}</textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="edit-section">
+    <div class="edit-section-label">📊 Chỉ số môi trường</div>
+    <div class="edit-section-body">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <div class="cg">
+                <div class="cg-title">Chỉ số 1</div>
+                <div class="fl">Tên</div><input type="text" name="index1_name" class="inline-field" value="{{ c.index1_name }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><input type="text" name="index1_desc" class="inline-field" value="{{ c.index1_desc }}">
+            </div>
+            <div class="cg">
+                <div class="cg-title">Chỉ số 2</div>
+                <div class="fl">Tên</div><input type="text" name="index2_name" class="inline-field" value="{{ c.index2_name }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><input type="text" name="index2_desc" class="inline-field" value="{{ c.index2_desc }}">
+            </div>
+            <div class="cg">
+                <div class="cg-title">Chỉ số 3</div>
+                <div class="fl">Tên</div><input type="text" name="index3_name" class="inline-field" value="{{ c.index3_name }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><input type="text" name="index3_desc" class="inline-field" value="{{ c.index3_desc }}">
+            </div>
+            <div class="cg">
+                <div class="cg-title">Chỉ số 4</div>
+                <div class="fl">Tên</div><input type="text" name="index4_name" class="inline-field" value="{{ c.index4_name }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><input type="text" name="index4_desc" class="inline-field" value="{{ c.index4_desc }}">
+            </div>
+            <div class="cg">
+                <div class="cg-title">Chỉ số 5</div>
+                <div class="fl">Tên</div><input type="text" name="index5_name" class="inline-field" value="{{ c.index5_name }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><input type="text" name="index5_desc" class="inline-field" value="{{ c.index5_desc }}">
+            </div>
+            <div class="cg">
+                <div class="cg-title">Chỉ số 6</div>
+                <div class="fl">Tên</div><input type="text" name="index6_name" class="inline-field" value="{{ c.index6_name }}" style="margin-bottom:8px">
+                <div class="fl">Mô tả</div><input type="text" name="index6_desc" class="inline-field" value="{{ c.index6_desc }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="edit-section">
+    <div class="edit-section-label">📬 Liên hệ</div>
+    <div class="edit-section-body">
+        <textarea name="contact_desc" class="inline-field" rows="2" placeholder="Mô tả phần liên hệ cuối trang...">{{ c.contact_desc }}</textarea>
+    </div>
+</div>
+
+<div class="save-bar">
+    <span style="font-size:12px;color:var(--text-muted)">💡 Lưu xong trang About cập nhật ngay lập tức</span>
+    <div style="display:flex;gap:10px">
+        <a href="{% url 'admin_dashboard' %}" class="btn btn-ghost">Hủy</a>
+        <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+    </div>
+</div>
+</form>
+{% endblock %}

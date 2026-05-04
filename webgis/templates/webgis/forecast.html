@@ -1,0 +1,246 @@
+    {% load static %}
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dự Báo – WebGIS Môi Trường TP.HCM</title>
+    <link rel="stylesheet" href="{% static 'webgis/css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'webgis/css/forecast.css' %}">
+    </head>
+    <body>
+
+    <nav class="navbar">
+    <a href="{% url 'home' %}" class="nav-logo">
+    <div class="nav-logo-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+    </div>
+    <div class="nav-logo-text">HHL<span>Giám sát môi trường đô thị</span></div>
+    </a>
+    <nav class="nav-menu">
+    <a href="{% url 'home' %}" class="nav-link">Bản Đồ</a>
+    <a href="{% url 'analysis' %}" class="nav-link">Phân Tích</a>
+    <a href="{% url 'alert' %}" class="nav-link">Cảnh Báo</a>
+    <a href="{% url 'report' %}" class="nav-link">Báo Cáo</a>
+    <a href="{% url 'forecast' %}" class="nav-link active">Dự Báo</a>
+    <a href="{% url 'feedback' %}" class="nav-link">Góp Ý</a>
+    <a href="{% url 'about' %}" class="nav-link">Giới Thiệu</a>
+    </nav>
+    <div class="nav-right">
+    {% if user.is_authenticated %}
+    <a href="{% url 'dashboard' %}" style="text-decoration:none;">
+    <div class="nav-user">
+        <div class="nav-avatar">{{ user.username|first|upper }}</div>
+        <span class="nav-username">{{ user.username }}</span>
+    </div>
+    </a>
+    {% if user.profile.is_admin %}
+    <a href="{% url 'dashboard' %}" class="nav-btn-login">Dashboard</a>
+    {% else %}
+    <form method="POST" action="{% url 'logout' %}" style="margin:0">
+        {% csrf_token %}
+        <button type="submit" class="nav-btn-logout">Đăng xuất</button>
+    </form>
+    {% endif %}
+    {% endif %}
+    </div>
+    </nav>
+
+    <!-- HEADER -->
+    <div class="page-header">
+    <div>
+    <div class="page-title">Dự Báo <span>7 Ngày</span></div>
+    <div class="page-subtitle">Xu hướng AQI · Nhiệt độ · PM2.5 dựa trên dữ liệu thực</div>
+    </div>
+    <div class="location-badge">📍 TP. Hồ Chí Minh</div>
+    </div>
+
+    <!-- 7-DAY CARDS -->
+    <div class="forecast-strip" id="forecastStrip">
+    {% for i in "1234567" %}
+    <div class="day-card skeleton">
+    <div class="day-label">--</div>
+    <div class="day-date">--/--</div>
+    <div class="day-icon">⏳</div>
+    <div class="day-temp">--°</div>
+    <div class="day-aqi-bar"><div class="day-aqi-fill" style="width:0%"></div></div>
+    <div class="day-aqi-label">AQI --</div>
+    </div>
+    {% endfor %}
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="forecast-layout">
+
+    <div class="forecast-main">
+    <div class="chart-card">
+        <div class="chart-card-header">
+        <div>
+        <div class="chart-card-title">💨 Dự báo AQI 7 ngày</div>
+        <div class="chart-card-sub">Xu hướng chất lượng không khí</div>
+        </div>
+        <div class="aqi-legend">
+        <span class="leg good">Tốt</span>
+        <span class="leg moderate">TB</span>
+        <span class="leg bad">Kém</span>
+        </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartAqi"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+        <div class="chart-card-header">
+        <div>
+        <div class="chart-card-title">🌡 Dự báo nhiệt độ 7 ngày</div>
+        <div class="chart-card-sub">Nhiệt độ cao/thấp theo ngày (°C)</div>
+        </div>
+        <div style="display:flex;gap:10px;font-size:11px;color:#90B8D4">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#EF233C;display:inline-block;border-radius:2px"></span>Cao nhất</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:#00B4D8;display:inline-block;border-radius:2px"></span>Thấp nhất</span>
+        </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+        <div class="chart-card-header">
+        <div>
+        <div class="chart-card-title">🌫 Dự báo PM2.5 7 ngày</div>
+        <div class="chart-card-sub">µg/m³ — Ngưỡng WHO: 25 µg/m³</div>
+        </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartPm25"></canvas></div>
+    </div>
+    </div>
+
+    <div class="forecast-sidebar">
+    <div class="sidebar-card">
+        <div class="sidebar-card-title">⚡ Hiện tại</div>
+        <div class="now-big" id="nowTemp">--°C</div>
+        <div class="now-desc" id="nowDesc">Đang tải...</div>
+        <div class="now-grid">
+        <div class="now-item"><div class="now-item-label">AQI</div><div class="now-item-val" id="nowAqi">--</div></div>
+        <div class="now-item"><div class="now-item-label">Độ ẩm</div><div class="now-item-val" id="nowHumidity">--%</div></div>
+        <div class="now-item"><div class="now-item-label">PM2.5</div><div class="now-item-val" id="nowPm25">--</div></div>
+        <div class="now-item"><div class="now-item-label">Cảm giác</div><div class="now-item-val" id="nowFeels">--°</div></div>
+        </div>
+    </div>
+
+    <div class="sidebar-card">
+        <div class="sidebar-card-title">📊 Nhận định</div>
+        <div class="insight-list" id="insightList">
+        <div style="color:#90B8D4;font-size:12px">Đang phân tích...</div>
+        </div>
+    </div>
+
+    <div class="sidebar-card">
+        <div class="sidebar-card-title">🎯 Thang AQI</div>
+        <div class="aqi-scale">
+        <div class="aqi-scale-row" style="--c:#06D6A0"><span>0–50</span><span>Tốt</span></div>
+        <div class="aqi-scale-row" style="--c:#FFD60A"><span>51–100</span><span>Trung bình</span></div>
+        <div class="aqi-scale-row" style="--c:#FF6B6B"><span>101–150</span><span>Kém</span></div>
+        <div class="aqi-scale-row" style="--c:#EF233C"><span>151–200</span><span>Xấu</span></div>
+        <div class="aqi-scale-row" style="--c:#7B2FBE"><span>&gt;200</span><span>Nguy hiểm</span></div>
+        </div>
+    </div>
+    </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+    Chart.defaults.font.family = "'DM Sans','Segoe UI',sans-serif";
+    Chart.defaults.color = '#90B8D4';
+
+    const baseOpts = {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(255,255,255,0.95)', titleColor: '#03045E', bodyColor: '#5A8DB8', borderColor: 'rgba(0,180,216,0.2)', borderWidth: 1, padding: 10, cornerRadius: 8 } },
+    scales: {
+        x: { grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(0,180,216,0.06)' }, ticks: { color: '#90B8D4', font: { size: 11 } } }
+    }
+    };
+
+    let chartAqi, chartTemp, chartPm25;
+
+    function initCharts() {
+    chartAqi = new Chart(document.getElementById('chartAqi'), { type: 'bar', data: { labels: [], datasets: [{ label: 'AQI', data: [], backgroundColor: [], borderRadius: 8, borderSkipped: false }] }, options: baseOpts });
+    chartTemp = new Chart(document.getElementById('chartTemp'), { type: 'line', data: { labels: [], datasets: [
+        { label: 'Cao nhất', data: [], borderColor: '#EF233C', backgroundColor: 'rgba(239,35,60,0.08)', borderWidth: 2, pointRadius: 4, tension: 0.4, fill: false },
+        { label: 'Thấp nhất', data: [], borderColor: '#00B4D8', backgroundColor: 'rgba(0,180,216,0.08)', borderWidth: 2, pointRadius: 4, tension: 0.4, fill: '-1' },
+    ] }, options: baseOpts });
+    chartPm25 = new Chart(document.getElementById('chartPm25'), { type: 'line', data: { labels: [], datasets: [{ label: 'PM2.5', data: [], borderColor: '#FF6B6B', backgroundColor: 'rgba(255,107,107,0.1)', borderWidth: 2, pointRadius: 4, tension: 0.4, fill: true }] }, options: baseOpts });
+    }
+
+    function aqiColor(v) {
+    if (v <= 50)  return 'rgba(6,214,160,0.7)';
+    if (v <= 100) return 'rgba(255,214,10,0.7)';
+    if (v <= 150) return 'rgba(255,107,107,0.7)';
+    return 'rgba(239,35,60,0.8)';
+    }
+
+    async function loadForecast() {
+    try {
+        const json = await (await fetch('/api/forecast/')).json();
+        if (!json.success) return;
+        const fc = json.forecast;
+        const labels = fc.map(d => d.day + '\n' + d.date);
+        document.getElementById('forecastStrip').innerHTML = fc.map((d, i) => `
+        <div class="day-card ${i === 0 ? 'today' : ''}">
+        <div class="day-label">${d.day}</div><div class="day-date">${d.date}</div>
+        <div class="day-icon">${d.icon}</div><div class="day-temp">${d.temp_max}°</div>
+        <div class="day-aqi-bar"><div class="day-aqi-fill" style="width:${Math.min(100,(d.aqi/200)*100)}%;background:${aqiColor(d.aqi)}"></div></div>
+        <div class="day-aqi-label">AQI ${d.aqi}</div>
+        </div>`).join('');
+        chartAqi.data.labels = labels;
+        chartAqi.data.datasets[0].data = fc.map(d => d.aqi);
+        chartAqi.data.datasets[0].backgroundColor = fc.map(d => aqiColor(d.aqi));
+        chartAqi.update();
+        chartTemp.data.labels = labels;
+        chartTemp.data.datasets[0].data = fc.map(d => d.temp_max);
+        chartTemp.data.datasets[1].data = fc.map(d => d.temp_min);
+        chartTemp.update();
+        chartPm25.data.labels = labels;
+        chartPm25.data.datasets[0].data = fc.map(d => d.pm25);
+        chartPm25.update();
+        const avgAqi = Math.round(fc.reduce((a,d) => a+d.aqi, 0) / fc.length);
+        const maxTemp = Math.max(...fc.map(d => d.temp_max));
+        const rainDays = fc.filter(d => d.rain > 0).length;
+        const insights = [];
+        if (avgAqi <= 50) insights.push({ icon:'✅', text:'Không khí tuần tới tốt', color:'#06D6A0' });
+        else if (avgAqi <= 100) insights.push({ icon:'⚠️', text:`AQI trung bình ${avgAqi} — trung bình`, color:'#FFD60A' });
+        else insights.push({ icon:'🔴', text:`AQI trung bình ${avgAqi} — cần chú ý`, color:'#EF233C' });
+        if (maxTemp >= 35) insights.push({ icon:'🌡', text:`Nhiệt độ lên đến ${maxTemp}°C — nguy cơ UHI`, color:'#FF6B6B' });
+        if (rainDays >= 3) insights.push({ icon:'🌧', text:`${rainDays}/7 ngày có mưa — nguy cơ ngập`, color:'#00B4D8' });
+        else insights.push({ icon:'☀️', text:'Ít mưa — cần tưới cây xanh', color:'#FFD60A' });
+        document.getElementById('insightList').innerHTML = insights.map(ins =>
+        `<div class="insight-item" style="border-left-color:${ins.color}"><span class="insight-icon">${ins.icon}</span><span>${ins.text}</span></div>`).join('');
+    } catch(e) { console.warn('Forecast error:', e); }
+    }
+
+    async function loadNow() {
+    try {
+        const json = await (await fetch('/api/weather/')).json();
+        if (!json.success) return;
+        const w = json.weather, a = json.air;
+        document.getElementById('nowTemp').textContent     = w.temp + '°C';
+        document.getElementById('nowDesc').textContent     = w.description;
+        document.getElementById('nowHumidity').textContent = w.humidity + '%';
+        document.getElementById('nowFeels').textContent    = w.feels_like + '°';
+        if (!a.error) {
+        document.getElementById('nowAqi').textContent  = a.aqi;
+        document.getElementById('nowPm25').textContent = a.pm25;
+        document.getElementById('nowAqi').style.color  = a.aqi > 100 ? '#EF233C' : a.aqi > 50 ? '#FFD60A' : '#06D6A0';
+        }
+    } catch(e) {}
+    }
+
+    initCharts();
+    loadForecast();
+    loadNow();
+    </script>
+    </body>
+    </html>

@@ -1,0 +1,220 @@
+    /* =============================================
+    ANALYSIS.CSS — Trang Phân Tích
+    ============================================= */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: #EEF7FC;
+    color: #03045E;
+    min-height: 100vh;
+    }
+
+    /* NAVBAR */
+    .navbar {
+    height: 56px;
+    background: #fff;
+    border-bottom: 1.5px solid rgba(0,180,216,0.18);
+    box-shadow: 0 2px 12px rgba(0,180,216,0.08);
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    }
+
+    .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+    }
+
+    .nav-logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #00B4D8, #00F5D4);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 12px rgba(0,180,216,0.35);
+    }
+
+    .nav-logo-icon svg { width: 18px; height: 18px; color: #fff; }
+
+    .nav-logo-text {
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700; color: #03045E; line-height: 1.15;
+    }
+
+    .nav-logo-text span {
+    display: block; font-size: 10px; font-weight: 400;
+    color: #90B8D4; letter-spacing: 0.7px; text-transform: uppercase;
+    }
+
+    .nav-menu { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
+
+    .nav-link {
+    padding: 6px 13px; font-size: 13px; font-weight: 500;
+    color: #5A8DB8; border-radius: 8px; text-decoration: none; transition: all 0.2s;
+    }
+
+    .nav-link:hover { color: #00B4D8; background: rgba(0,180,216,0.07); }
+    .nav-link.active { color: #00B4D8; background: rgba(0,180,216,0.1); font-weight: 600; }
+
+    .nav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    .nav-btn-login {
+    padding: 8px 18px; font-size: 13px; font-weight: 700;
+    color: #fff; background: linear-gradient(135deg, #00B4D8, #0077B6);
+    border: none; border-radius: 20px; cursor: pointer;
+    text-decoration: none; box-shadow: 0 3px 12px rgba(0,180,216,0.3);
+    }
+
+    /* PAGE HEADER */
+    .page-header {
+    padding: 28px 28px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    }
+
+    .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px; font-weight: 700; color: #03045E;
+    }
+
+    .page-title span { color: #00B4D8; }
+    .page-subtitle { font-size: 13px; color: #90B8D4; margin-top: 3px; }
+
+    /* DAYS FILTER */
+    .days-filter { display: flex; gap: 6px; }
+
+    .day-btn {
+    padding: 6px 14px; font-size: 12px; font-weight: 600;
+    border-radius: 20px; border: 1.5px solid rgba(0,180,216,0.2);
+    background: #fff; color: #5A8DB8; cursor: pointer; transition: all 0.2s;
+    }
+
+    .day-btn:hover { border-color: #00B4D8; color: #00B4D8; }
+    .day-btn.active { background: #00B4D8; color: #fff; border-color: #00B4D8; }
+
+    /* SUMMARY CARDS */
+    .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    padding: 20px 28px;
+    }
+
+    .summary-card {
+    background: #fff;
+    border: 1.5px solid rgba(0,180,216,0.15);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 2px 10px rgba(0,180,216,0.06);
+    transition: all 0.2s;
+    }
+
+    .summary-card:hover { box-shadow: 0 6px 20px rgba(0,180,216,0.12); transform: translateY(-2px); }
+
+    .summary-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+    }
+
+    .summary-card-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    }
+
+    .summary-card-badge {
+    font-size: 10px; font-weight: 700; padding: 3px 8px;
+    border-radius: 6px; letter-spacing: 0.5px;
+    }
+
+    .summary-card-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 4px;
+    }
+
+    .summary-card-label { font-size: 12px; color: #90B8D4; margin-bottom: 6px; }
+
+    .summary-card-trend {
+    font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; gap: 4px;
+    }
+
+    /* CHARTS GRID */
+    .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 0 28px 28px;
+    }
+
+    .chart-card {
+    background: #fff;
+    border: 1.5px solid rgba(0,180,216,0.15);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: 0 2px 10px rgba(0,180,216,0.06);
+    }
+
+    .chart-card.wide { grid-column: span 2; }
+
+    .chart-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+    }
+
+    .chart-card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 700; color: #03045E;
+    display: flex; align-items: center; gap: 7px;
+    }
+
+    .chart-card-sub { font-size: 11px; color: #90B8D4; margin-top: 2px; }
+
+    .chart-card-meta {
+    font-size: 11px; color: #90B8D4;
+    display: flex; align-items: center; gap: 10px;
+    }
+
+    .chart-wrap { height: 200px; position: relative; }
+    .chart-wrap.tall { height: 260px; }
+
+    /* LOADING */
+    .loading-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.9);
+    border-radius: 10px;
+    font-size: 13px; color: #90B8D4;
+    z-index: 10;
+    }
+
+    /* NO DATA */
+    .no-data {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; color: #90B8D4; font-size: 13px; gap: 8px;
+    }
+
+    .no-data-icon { font-size: 32px; opacity: 0.4; }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
+    .chart-card.wide { grid-column: span 1; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 600px) {
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .page-header { padding: 18px 16px 0; }
+    .summary-grid, .charts-grid { padding: 12px 16px; }
+    .nav-menu { display: none; }
+    }

@@ -1,0 +1,199 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Góp Ý – WebGIS Môi Trường TP.HCM</title>
+<link rel="stylesheet" href="{% static 'webgis/css/base.css' %}">
+<link rel="stylesheet" href="{% static 'webgis/css/feedback.css' %}">
+</head>
+<body>
+
+<nav class="navbar">
+<a href="{% url 'home' %}" class="nav-logo">
+<div class="nav-logo-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+<circle cx="12" cy="12" r="10"/>
+<path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+</svg>
+</div>
+<div class="nav-logo-text">HHL<span>Giám sát môi trường đô thị</span></div>
+</a>
+<nav class="nav-menu">
+<a href="{% url 'home' %}" class="nav-link">Bản Đồ</a>
+<a href="{% url 'analysis' %}" class="nav-link">Phân Tích</a>
+<a href="{% url 'alert' %}" class="nav-link">Cảnh Báo</a>
+<a href="{% url 'report' %}" class="nav-link">Báo Cáo</a>
+<a href="{% url 'forecast' %}" class="nav-link">Dự Báo</a>
+<a href="{% url 'feedback' %}" class="nav-link active">Góp Ý</a>
+<a href="{% url 'about' %}" class="nav-link">Giới Thiệu</a>
+</nav>
+<div class="nav-right">
+{% if user.is_authenticated %}
+<a href="{% url 'dashboard' %}" style="text-decoration:none;">
+<div class="nav-user">
+<div class="nav-avatar">{{ user.username|first|upper }}</div>
+<span class="nav-username">{{ user.username }}</span>
+</div>
+</a>
+{% if user.profile.is_admin %}
+<a href="{% url 'dashboard' %}" class="nav-btn-login">Dashboard</a>
+{% else %}
+<form method="POST" action="{% url 'logout' %}" style="margin:0">
+{% csrf_token %}
+<button type="submit" class="nav-btn-logout">Đăng xuất</button>
+</form>
+{% endif %}
+{% endif %}
+</div>
+</nav>
+
+<!-- HEADER -->
+<div class="page-header">
+<div>
+<div class="page-title">Góp Ý <span>Phản Ánh</span></div>
+<div class="page-subtitle">Phản ánh tình trạng môi trường tại khu vực của bạn</div>
+</div>
+</div>
+
+<div class="feedback-layout">
+
+<!-- FORM -->
+<div class="feedback-form-wrap">
+<div class="form-card">
+<div class="form-card-title">✍️ Gửi phản ánh mới</div>
+<div class="form-user-info">
+<div class="form-avatar">{{ user.username|first|upper }}</div>
+<div>
+<div style="font-size:13px;font-weight:600;color:#03045E">{{ user.username }}</div>
+<div style="font-size:11px;color:#90B8D4">Đang đăng nhập</div>
+</div>
+</div>
+<form method="POST" action="{% url 'submit_feedback' %}">
+{% csrf_token %}
+<div class="form-grid">
+<div class="form-group">
+<label>Danh mục</label>
+<select name="category">
+<option value="air">💨 Chất lượng không khí</option>
+<option value="water">💧 Chất lượng nước</option>
+<option value="noise">🔊 Tiếng ồn</option>
+<option value="waste">🗑 Rác thải</option>
+<option value="green">🌿 Cây xanh</option>
+<option value="other">📌 Khác</option>
+</select>
+</div>
+<div class="form-group">
+<label>Quận/Huyện</label>
+<input type="text" name="district" placeholder="VD: Quận 1, Bình Thạnh...">
+</div>
+<div class="form-group wide">
+<label>Tiêu đề</label>
+<input type="text" name="title" placeholder="Mô tả ngắn gọn vấn đề..." required>
+</div>
+<div class="form-group wide">
+<label>Mô tả chi tiết</label>
+<textarea name="description" rows="4" placeholder="Mô tả chi tiết tình trạng môi trường bạn quan sát được..."></textarea>
+</div>
+</div>
+<div style="display:flex;justify-content:flex-end;margin-top:14px">
+<button type="submit" class="btn-submit">📤 Gửi phản ánh</button>
+</div>
+</form>
+</div>
+
+<!-- STATS -->
+<div class="fb-stats">
+<div class="fb-stat-item">
+<div class="fb-stat-val" id="fbTotal">--</div>
+<div class="fb-stat-label">Tổng phản ánh</div>
+</div>
+<div class="fb-stat-item">
+<div class="fb-stat-val" style="color:#FFD60A" id="fbPending">--</div>
+<div class="fb-stat-label">Chờ xử lý</div>
+</div>
+<div class="fb-stat-item">
+<div class="fb-stat-val" style="color:#06D6A0" id="fbResolved">--</div>
+<div class="fb-stat-label">Đã xử lý</div>
+</div>
+</div>
+</div>
+
+<!-- DANH SÁCH PHẢN ÁNH -->
+<div class="feedback-list-wrap">
+<div class="list-header">
+<div class="list-title">📋 Phản ánh gần đây</div>
+<div class="filter-tabs">
+<button class="filter-btn active" onclick="filterFb('all', this)">Tất cả</button>
+<button class="filter-btn" onclick="filterFb('pending', this)">Chờ xử lý</button>
+<button class="filter-btn" onclick="filterFb('resolved', this)">Đã xử lý</button>
+</div>
+</div>
+
+<div id="fbList">
+{% if feedbacks %}
+{% for fb in feedbacks %}
+<div class="fb-card" data-status="{{ fb.status }}">
+<div class="fb-card-header">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="fb-cat-badge">
+{% if fb.category == 'air' %}💨
+{% elif fb.category == 'water' %}💧
+{% elif fb.category == 'noise' %}🔊
+{% elif fb.category == 'waste' %}🗑
+{% elif fb.category == 'green' %}🌿
+{% else %}📌{% endif %}
+{{ fb.get_category_display }}
+</span>
+{% if fb.district %}<span class="fb-district">📍 {{ fb.district }}</span>{% endif %}
+</div>
+<span class="fb-status {{ fb.status }}">
+{% if fb.status == 'resolved' %}✅ Đã xử lý
+{% elif fb.status == 'reviewing' %}👀 Đang xem xét
+{% else %}⏳ Chờ xử lý{% endif %}
+</span>
+</div>
+<div class="fb-card-title">{{ fb.title }}</div>
+<div class="fb-card-desc">{{ fb.description }}</div>
+<div class="fb-card-meta">
+{% if fb.user %}<span>👤 {{ fb.user.username }}</span>{% endif %}
+<span>🕐 {{ fb.created_at|date:"d/m/Y H:i" }}</span>
+</div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+<div class="empty-icon">📭</div>
+<div>Chưa có phản ánh nào</div>
+<div style="font-size:12px;color:#90B8D4;margin-top:4px">Hãy là người đầu tiên gửi phản ánh!</div>
+</div>
+{% endif %}
+</div>
+</div>
+
+</div>
+
+<script>
+async function loadStats() {
+try {
+const json = await (await fetch('/api/feedback/')).json();
+if (!json.success) return;
+document.getElementById('fbTotal').textContent    = json.total;
+document.getElementById('fbPending').textContent  = json.feedbacks.filter(f => f.status === 'pending').length;
+document.getElementById('fbResolved').textContent = json.feedbacks.filter(f => f.status === 'resolved').length;
+} catch(e) {}
+}
+
+function filterFb(status, btn) {
+document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+btn.classList.add('active');
+document.querySelectorAll('.fb-card').forEach(card => {
+card.style.display = (status === 'all' || card.dataset.status === status) ? '' : 'none';
+});
+}
+
+loadStats();
+</script>
+</body>
+</html>

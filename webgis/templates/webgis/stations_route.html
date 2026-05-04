@@ -1,0 +1,610 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tìm Đường Đến Trạm Quan Trắc – WebGIS TP.HCM</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="{% static 'webgis/css/stations_route.css' %}">
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav class="sr-nav">
+  <a href="{% url 'home' %}" class="sr-nav-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+    <div><div>HHL WebGIS</div><span>Giám sát môi trường đô thị</span></div>
+  </a>
+  <div class="sr-nav-links">
+    <a href="{% url 'home' %}">Bản Đồ</a>
+    <a href="{% url 'stations_route' %}" class="active">Tìm Trạm</a>
+    <a href="{% url 'about' %}">Giới Thiệu</a>
+  </div>
+  <div class="sr-nav-right">
+    <div class="sr-nav-badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+      </svg>
+      Công khai · Không cần đăng nhập
+    </div>
+    {% if user.is_authenticated %}
+    <a href="{% url 'dashboard' %}" class="sr-nav-login">Dashboard</a>
+    {% else %}
+    <a href="{% url 'login' %}" class="sr-nav-login">Đăng nhập</a>
+    {% endif %}
+  </div>
+</nav>
+
+<!-- ── Main layout ── -->
+<div class="sr-layout">
+
+  <!-- ── Sidebar ── -->
+  <div class="sr-sidebar">
+
+    <!-- Search panel -->
+    <div class="sr-search-panel">
+      <div class="sr-search-title">Nhập địa chỉ xuất phát</div>
+
+      <div class="sr-input-wrap" id="geocodeWrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" id="addressInput" class="sr-address-input"
+          placeholder="VD: 227 Nguyễn Văn Cừ, Quận 5, TP.HCM"
+          autocomplete="off" spellcheck="false">
+        <div class="sr-geocode-results" id="geocodeResults"></div>
+      </div>
+
+      <div class="sr-btn-row">
+        <button class="sr-btn sr-btn-outline" id="btnGeolocate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+          </svg>
+          Vị trí hiện tại
+        </button>
+        <button class="sr-btn sr-btn-primary" id="btnFindNearest" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 12l9-9 9 9M5 10v9a1 1 0 0 0 1 1h4v-5h4v5h4a1 1 0 0 0 1-1v-9"/>
+          </svg>
+          Trạm gần nhất
+        </button>
+      </div>
+    </div>
+
+    <!-- Location status bar -->
+    <div class="sr-location-status" id="locationStatus">
+      <div class="sr-location-dot"></div>
+      <span id="locationStatusText">Đã xác định vị trí</span>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="sr-filter-row">
+      <button class="sr-filter-chip active" data-type="all">Tất cả</button>
+      <button class="sr-filter-chip" data-type="air">🌬️ Không khí</button>
+      <button class="sr-filter-chip" data-type="water">💧 Nước</button>
+      <button class="sr-filter-chip" data-type="weather">🌡️ Khí tượng</button>
+    </div>
+
+    <!-- Station list header -->
+    <div class="sr-station-list-header">
+      <span class="sr-station-count" id="stationCount">Đang tải...</span>
+      <select class="sr-sort-select" id="sortSelect">
+        <option value="name">Tên A–Z</option>
+        <option value="dist">Khoảng cách</option>
+        <option value="type">Loại trạm</option>
+      </select>
+    </div>
+
+    <!-- Loading -->
+    <div class="sr-loading" id="stationLoading">
+      <div class="sr-spinner"></div>
+      <span>Đang tải danh sách trạm...</span>
+    </div>
+
+    <!-- Empty state -->
+    <div class="sr-empty" id="stationEmpty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
+      </svg>
+      Không tìm thấy trạm phù hợp
+    </div>
+
+    <!-- Station cards -->
+    <div class="sr-station-list" id="stationList"></div>
+
+    <!-- Route info -->
+    <div class="sr-route-info" id="routeInfo">
+      <div class="sr-route-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0077B6" stroke-width="2.5">
+          <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 0 0 1 1h3m10-11l2 2m-2-2v10a1 1 0 0 1-1 1h-3m-6 0a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1m-6 0h6"/>
+        </svg>
+        <div class="sr-route-header-title" id="routeTitle">Lộ trình</div>
+        <button class="sr-route-close" id="routeClose" title="Đóng">✕</button>
+      </div>
+      <div class="sr-route-stats">
+        <div class="sr-route-stat">
+          <div class="sr-route-stat-val" id="routeDist">--</div>
+          <div class="sr-route-stat-lbl">Khoảng cách</div>
+        </div>
+        <div class="sr-route-stat">
+          <div class="sr-route-stat-val" id="routeTime">--</div>
+          <div class="sr-route-stat-lbl">Thời gian dự kiến</div>
+        </div>
+      </div>
+      <div class="sr-steps" id="routeSteps"></div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ── Map ── -->
+  <div class="sr-map-wrap">
+    <div id="srMap"></div>
+    <div class="sr-map-hint" id="mapHint">
+      📍 Click vào trạm để xem thông tin · 🔵 Chọn trạm rồi nhấn "Chỉ đường"
+    </div>
+  </div>
+
+</div><!-- /layout -->
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ── Config ── */
+  const HCMC_CENTER = [10.7769, 106.7009];
+  const TYPE_META = {
+    air:     { emoji: '🌬️', label: 'Không khí', color: '#00B4D8', bg: '#e0f7fa' },
+    water:   { emoji: '💧', label: 'Nước',      color: '#0077B6', bg: '#e3f2fd' },
+    weather: { emoji: '🌡️', label: 'Khí tượng', color: '#FF9A3C', bg: '#fff8e1' },
+  };
+
+  /* ── State ── */
+  let allStations = [];
+  let userLatLng  = null;   // { lat, lng }
+  let activeFilter = 'all';
+  let selectedId   = null;
+  let routeLayer   = null;
+  let userMarker   = null;
+  let stationMarkers = {};  // id → marker
+
+  /* ── Map init ── */
+  const map = L.map('srMap', { zoomControl: true }).setView(HCMC_CENTER, 12);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(map);
+
+  /* ── Helpers ── */
+  function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  function fmtDist(km) {
+    return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+  }
+
+  function fmtTime(seconds) {
+    const m = Math.round(seconds / 60);
+    return m < 60 ? `${m} phút` : `${Math.floor(m/60)}h ${m%60}m`;
+  }
+
+  function typeOf(s) { return TYPE_META[s.station_type] || TYPE_META.air; }
+
+  /* ── Marker factory ── */
+  function makeMarkerIcon(type, isSelected) {
+    const meta = TYPE_META[type] || TYPE_META.air;
+    const size = isSelected ? 40 : 32;
+    const shadow = isSelected ? `0 4px 14px ${meta.color}88` : '0 2px 6px rgba(0,0,0,0.25)';
+    const html = `
+      <div style="width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);background:${meta.color};
+        display:flex;align-items:center;justify-content:center;
+        box-shadow:${shadow};border:2px solid rgba(255,255,255,0.9);">
+        <span style="transform:rotate(45deg);font-size:${isSelected?17:13}px;">${meta.emoji}</span>
+      </div>`;
+    return L.divIcon({ html, className: '', iconSize: [size, size], iconAnchor: [size/2, size] });
+  }
+
+  function makeUserIcon() {
+    const html = `
+      <div style="width:20px;height:20px;border-radius:50%;background:#EF233C;
+        border:3px solid #fff;box-shadow:0 2px 8px rgba(239,35,60,0.5);
+        animation:pulse 1.5s ease-in-out infinite;">
+      </div>
+      <style>@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,35,60,0.4)}50%{box-shadow:0 0 0 8px rgba(239,35,60,0)}}</style>`;
+    return L.divIcon({ html, className: '', iconSize: [20, 20], iconAnchor: [10, 10] });
+  }
+
+  /* ── Load stations ── */
+  function loadStations() {
+    document.getElementById('stationLoading').classList.add('show');
+    fetch('/api/stations/public/')
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('stationLoading').classList.remove('show');
+        if (!data.success) { showEmpty(); return; }
+        allStations = data.stations;
+        addMarkersToMap();
+        renderList();
+      })
+      .catch(() => {
+        document.getElementById('stationLoading').classList.remove('show');
+        showEmpty();
+      });
+  }
+
+  function showEmpty() {
+    document.getElementById('stationEmpty').classList.add('show');
+    document.getElementById('stationCount').textContent = '0 trạm';
+  }
+
+  /* ── Add all markers ── */
+  function addMarkersToMap() {
+    allStations.forEach(s => {
+      const marker = L.marker([s.latitude, s.longitude], { icon: makeMarkerIcon(s.station_type, false) })
+        .addTo(map);
+      marker.on('click', () => selectStation(s.id));
+      marker.bindPopup(buildPopup(s), { maxWidth: 220 });
+      stationMarkers[s.id] = marker;
+    });
+  }
+
+  function buildPopup(s) {
+    const meta = typeOf(s);
+    const distHtml = (userLatLng && s._dist != null)
+      ? `<div class="popup-dist">📍 Cách bạn ${fmtDist(s._dist)}</div>` : '';
+    return `
+      <div class="popup-name">${s.name}</div>
+      <div class="popup-meta">
+        ${meta.emoji} ${meta.label}<br>
+        📌 ${s.district}${s.address ? `<br>🏠 ${s.address}` : ''}
+      </div>
+      ${distHtml}
+      <button class="popup-route-btn" onclick="window._routeToStation(${s.id})">
+        🗺️ Chỉ đường đến đây
+      </button>`;
+  }
+
+  /* ── Render station list ── */
+  function renderList() {
+    let list = allStations.filter(s =>
+      activeFilter === 'all' || s.station_type === activeFilter
+    );
+
+    if (userLatLng) {
+      list.forEach(s => {
+        s._dist = haversine(userLatLng.lat, userLatLng.lng, s.latitude, s.longitude);
+      });
+    }
+
+    const sort = document.getElementById('sortSelect').value;
+    if (sort === 'dist' && userLatLng)      list.sort((a,b) => a._dist - b._dist);
+    else if (sort === 'type')               list.sort((a,b) => a.station_type.localeCompare(b.station_type));
+    else                                    list.sort((a,b) => a.name.localeCompare(b.name));
+
+    const nearestId = (userLatLng && list.length) ? list.reduce((a,b) => a._dist < b._dist ? a : b).id : null;
+
+    const container = document.getElementById('stationList');
+    container.innerHTML = '';
+
+    document.getElementById('stationEmpty').classList.remove('show');
+    document.getElementById('stationCount').textContent =
+      `${list.length} trạm${activeFilter !== 'all' ? ' (đã lọc)' : ''}`;
+
+    if (!list.length) { document.getElementById('stationEmpty').classList.add('show'); return; }
+
+    list.forEach(s => {
+      const meta = typeOf(s);
+      const isNearest  = s.id === nearestId;
+      const isSelected = s.id === selectedId;
+      const distEl = (userLatLng && s._dist != null)
+        ? `<div class="sr-station-dist show">📍 ${fmtDist(s._dist)}${isNearest ? '<span class="nearest-badge">⭐ Gần nhất</span>' : ''}</div>`
+        : '';
+
+      const card = document.createElement('div');
+      card.className = `sr-station-card${isNearest ? ' nearest' : ''}${isSelected ? ' selected' : ''}`;
+      card.dataset.id = s.id;
+      card.innerHTML = `
+        <div class="sr-station-dot dot-${s.station_type}" style="background:${meta.bg}">
+          <span style="font-size:15px">${meta.emoji}</span>
+        </div>
+        <div class="sr-station-info">
+          <div class="sr-station-name">${s.name}</div>
+          <div class="sr-station-meta">${meta.label} · ${s.district}</div>
+          ${distEl}
+        </div>
+        <button class="sr-route-btn" onclick="event.stopPropagation(); window._routeToStation(${s.id})">
+          Chỉ đường
+        </button>`;
+
+      card.addEventListener('click', () => selectStation(s.id));
+      container.appendChild(card);
+    });
+  }
+
+  /* ── Select a station ── */
+  function selectStation(id) {
+    // Reset old marker
+    if (selectedId && stationMarkers[selectedId]) {
+      const old = allStations.find(s => s.id === selectedId);
+      if (old) stationMarkers[selectedId].setIcon(makeMarkerIcon(old.station_type, false));
+    }
+
+    selectedId = id;
+    const station = allStations.find(s => s.id === id);
+    if (!station) return;
+
+    // Highlight new marker
+    if (stationMarkers[id]) {
+      stationMarkers[id].setIcon(makeMarkerIcon(station.station_type, true));
+      stationMarkers[id].openPopup();
+    }
+
+    map.flyTo([station.latitude, station.longitude], 15, { duration: 1.2 });
+    renderList();
+  }
+
+  /* ── Route to station ── */
+  window._routeToStation = function(id) {
+    if (!userLatLng) {
+      alert('Vui lòng nhập địa chỉ hoặc cho phép lấy vị trí hiện tại trước.');
+      return;
+    }
+    const station = allStations.find(s => s.id === id);
+    if (!station) return;
+
+    selectStation(id);
+    fetchRoute(userLatLng.lat, userLatLng.lng, station.latitude, station.longitude, station);
+  };
+
+  function fetchRoute(fromLat, fromLng, toLat, toLng, station) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson&steps=true`;
+
+    // Show loading in route panel
+    const ri = document.getElementById('routeInfo');
+    ri.classList.add('show');
+    document.getElementById('routeTitle').textContent = `→ ${station.name}`;
+    document.getElementById('routeDist').textContent = '…';
+    document.getElementById('routeTime').textContent = '…';
+    document.getElementById('routeSteps').innerHTML = '<div style="color:#90B8D4;font-size:12px;padding:4px 0">Đang tính toán lộ trình...</div>';
+
+    // Remove old route
+    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.routes || !data.routes.length) throw new Error('no route');
+        const route = data.routes[0];
+        const leg   = route.legs[0];
+
+        // Distance & duration
+        document.getElementById('routeDist').textContent = fmtDist(route.distance / 1000);
+        document.getElementById('routeTime').textContent = fmtTime(route.duration);
+
+        // Draw polyline
+        const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        routeLayer = L.polyline(coords, {
+          color: '#0077B6', weight: 5, opacity: 0.85,
+          dashArray: null,
+        }).addTo(map);
+        map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+
+        // Steps
+        const steps = leg.steps || [];
+        renderSteps(steps);
+
+        // Update hint
+        document.getElementById('mapHint').style.display = 'none';
+      })
+      .catch(() => {
+        // Fallback: draw straight line
+        const straight = L.polyline(
+          [[fromLat, fromLng], [toLat, toLng]],
+          { color: '#0077B6', weight: 4, opacity: 0.7, dashArray: '10, 8' }
+        ).addTo(map);
+        routeLayer = straight;
+        map.fitBounds(straight.getBounds(), { padding: [50, 50] });
+
+        const d = haversine(fromLat, fromLng, toLat, toLng);
+        document.getElementById('routeDist').textContent = `~${fmtDist(d)} (đường thẳng)`;
+        document.getElementById('routeTime').textContent = '~' + fmtTime(d * 1000 / 30 * 3.6); // 30 km/h avg
+        document.getElementById('routeSteps').innerHTML =
+          '<div style="color:#FF9A3C;font-size:12px;padding:4px 0">⚠️ Không lấy được lộ trình chi tiết — đường thẳng hiển thị thay thế.</div>';
+      });
+  }
+
+  function stepManeuverIcon(type, modifier) {
+    const m = modifier || '';
+    if (type === 'depart')  return '🚩';
+    if (type === 'arrive')  return '🎯';
+    if (m.includes('left')) return '↰';
+    if (m.includes('right'))return '↱';
+    if (type === 'roundabout') return '⭕';
+    return '↑';
+  }
+
+  function renderSteps(steps) {
+    const container = document.getElementById('routeSteps');
+    if (!steps.length) { container.innerHTML = ''; return; }
+    container.innerHTML = steps
+      .filter(s => s.maneuver && s.name !== undefined)
+      .map(s => {
+        const icon = stepManeuverIcon(s.maneuver.type, s.maneuver.modifier);
+        const name = s.name || s.maneuver.type;
+        const dist = s.distance < 50 ? '' : fmtDist(s.distance / 1000);
+        return `<div class="sr-step">
+          <div class="sr-step-icon">${icon}</div>
+          <div class="sr-step-text">${name}</div>
+          <div class="sr-step-dist">${dist}</div>
+        </div>`;
+      }).join('');
+  }
+
+  /* ── Set user location ── */
+  function setUserLocation(lat, lng, label) {
+    userLatLng = { lat, lng };
+
+    if (userMarker) map.removeLayer(userMarker);
+    userMarker = L.marker([lat, lng], { icon: makeUserIcon(), zIndexOffset: 1000 })
+      .addTo(map)
+      .bindPopup(`<div class="popup-name">📍 Vị trí của bạn</div><div class="popup-meta">${label}</div>`)
+      .openPopup();
+
+    // Refresh popups with distance
+    allStations.forEach(s => {
+      s._dist = haversine(lat, lng, s.latitude, s.longitude);
+      if (stationMarkers[s.id]) {
+        stationMarkers[s.id].setPopupContent(buildPopup(s));
+      }
+    });
+
+    // Show location status
+    const status = document.getElementById('locationStatus');
+    status.classList.add('show');
+    document.getElementById('locationStatusText').textContent = label;
+
+    document.getElementById('btnFindNearest').disabled = false;
+    document.getElementById('sortSelect').value = 'dist';
+    renderList();
+
+    // Move map to show both user and stations
+    const bounds = L.latLngBounds([[lat, lng]]);
+    allStations.slice(0, 5).forEach(s => bounds.extend([s.latitude, s.longitude]));
+    map.fitBounds(bounds, { padding: [40, 40] });
+  }
+
+  /* ── Geolocation ── */
+  document.getElementById('btnGeolocate').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      alert('Trình duyệt không hỗ trợ định vị.');
+      return;
+    }
+    const btn = document.getElementById('btnGeolocate');
+    btn.disabled = true;
+    btn.textContent = 'Đang lấy vị trí...';
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        btn.disabled = false;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Vị trí hiện tại`;
+        setUserLocation(pos.coords.latitude, pos.coords.longitude, 'Vị trí GPS của bạn');
+      },
+      () => {
+        btn.disabled = false;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg> Vị trí hiện tại`;
+        alert('Không thể lấy vị trí. Vui lòng cho phép quyền truy cập vị trí trong trình duyệt.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+
+  /* ── Find nearest ── */
+  document.getElementById('btnFindNearest').addEventListener('click', () => {
+    if (!userLatLng || !allStations.length) return;
+    const visible = activeFilter === 'all'
+      ? allStations
+      : allStations.filter(s => s.station_type === activeFilter);
+    if (!visible.length) { alert('Không có trạm nào trong bộ lọc hiện tại.'); return; }
+
+    visible.forEach(s => {
+      s._dist = haversine(userLatLng.lat, userLatLng.lng, s.latitude, s.longitude);
+    });
+    const nearest = visible.reduce((a, b) => a._dist < b._dist ? a : b);
+    window._routeToStation(nearest.id);
+  });
+
+  /* ── Geocode (Nominatim) ── */
+  let geocodeTimer = null;
+  const addressInput  = document.getElementById('addressInput');
+  const geocodeResults = document.getElementById('geocodeResults');
+
+  addressInput.addEventListener('input', () => {
+    clearTimeout(geocodeTimer);
+    const q = addressInput.value.trim();
+    if (q.length < 4) { geocodeResults.classList.remove('open'); return; }
+    geocodeTimer = setTimeout(() => doGeocode(q), 500);
+  });
+
+  addressInput.addEventListener('keydown', e => {
+    if (e.key === 'Escape') geocodeResults.classList.remove('open');
+  });
+
+  document.addEventListener('click', e => {
+    if (!document.getElementById('geocodeWrap').contains(e.target))
+      geocodeResults.classList.remove('open');
+  });
+
+  function doGeocode(query) {
+    const q = encodeURIComponent(query + ' TP Hồ Chí Minh');
+    const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&countrycodes=vn&limit=5&addressdetails=1`;
+
+    fetch(url, { headers: { 'Accept-Language': 'vi' } })
+      .then(r => r.json())
+      .then(results => {
+        geocodeResults.innerHTML = '';
+        if (!results.length) {
+          geocodeResults.innerHTML = '<div class="sr-geocode-item" style="color:#90B8D4;cursor:default">Không tìm thấy địa chỉ</div>';
+          geocodeResults.classList.add('open');
+          return;
+        }
+        results.forEach(r => {
+          const item = document.createElement('div');
+          item.className = 'sr-geocode-item';
+          const parts = r.display_name.split(', ');
+          const main = parts.slice(0, 2).join(', ');
+          const sub  = parts.slice(2, 5).join(', ');
+          item.innerHTML = `<div class="addr-main">${main}</div><div class="addr-sub">${sub}</div>`;
+          item.addEventListener('click', () => {
+            addressInput.value = main;
+            geocodeResults.classList.remove('open');
+            setUserLocation(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+          });
+          geocodeResults.appendChild(item);
+        });
+        geocodeResults.classList.add('open');
+      })
+      .catch(() => geocodeResults.classList.remove('open'));
+  }
+
+  /* ── Filter chips ── */
+  document.querySelectorAll('.sr-filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.sr-filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      activeFilter = chip.dataset.type;
+      renderList();
+    });
+  });
+
+  /* ── Sort select ── */
+  document.getElementById('sortSelect').addEventListener('change', renderList);
+
+  /* ── Close route panel ── */
+  document.getElementById('routeClose').addEventListener('click', () => {
+    document.getElementById('routeInfo').classList.remove('show');
+    if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+    document.getElementById('mapHint').style.display = '';
+  });
+
+  /* ── Add "Tìm Trạm" link to home navbar if present ── */
+
+  /* ── Boot ── */
+  loadStations();
+
+})();
+</script>
+
+</body>
+</html>

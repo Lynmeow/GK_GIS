@@ -1,0 +1,597 @@
+{% extends 'webgis/admin/base_admin.html' %}
+{% block title %}Quản lý trạm quan trắc{% endblock %}
+{% block breadcrumb %}Trạm quan trắc{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+.leaflet-pane,
+.leaflet-tile-pane,
+.leaflet-overlay-pane,
+.leaflet-shadow-pane,
+.leaflet-marker-pane,
+.leaflet-popup-pane,
+.leaflet-map-pane { z-index: 1 !important; }
+.leaflet-control-container .leaflet-top,
+.leaflet-control-container .leaflet-bottom { z-index: 2 !important; }
+.modal-overlay { z-index: 9999 !important; }
+
+/* Autocomplete dropdown */
+.address-wrapper { position: relative; }
+.address-suggestions {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: #fff;
+    border: 1.5px solid var(--primary);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 8px 24px rgba(3,4,94,0.12);
+    z-index: 99999;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+}
+.address-suggestions.show { display: block; }
+.suggestion-item {
+    padding: 9px 14px;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0,180,216,0.08);
+    transition: background 0.15s;
+}
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item:hover { background: rgba(0,180,216,0.07); }
+.suggestion-item small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+
+.geocode-status {
+    font-size: 11px; margin-top: 4px; padding: 3px 8px;
+    border-radius: 6px; display: none;
+}
+.geocode-status.loading { display: block; color: var(--primary); background: rgba(0,180,216,0.08); }
+.geocode-status.success { display: block; color: #00a896; background: rgba(6,214,160,0.08); }
+.geocode-status.error   { display: block; color: var(--danger); background: rgba(239,35,60,0.08); }
+
+/* Pin mode */
+@keyframes pulse-pin {
+    0%, 100% { box-shadow: 0 0 0 5px rgba(0,180,216,0.3); }
+    50%       { box-shadow: 0 0 0 12px rgba(0,180,216,0.05); }
+}
+#btn-pin-map {
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+}
+#btn-pin-map.active {
+    background: #00B4D8 !important;
+    color: #fff !important;
+    border-color: #00B4D8 !important;
+}
+#pin-hint { transition: color 0.2s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header animate-up">
+    <div>
+        <div class="page-title">🗺️ Quản lý trạm quan trắc</div>
+        <div class="page-subtitle">Thêm, sửa thông tin trạm trên bản đồ</div>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('modal-create')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Thêm trạm
+    </button>
+</div>
+
+<!-- MAP -->
+<div class="table-card animate-up" style="margin-bottom:20px">
+    <div class="table-header">
+        <div class="table-title">📍 Bản đồ trạm quan trắc</div>
+        <div style="display:flex;align-items:center;gap:12px">
+            <div id="pin-hint" style="font-size:12px;color:var(--text-muted)">Click marker để xem chi tiết</div>
+            <button id="btn-pin-map" class="btn btn-ghost btn-sm" onclick="togglePinMode()">
+                📌 Ghim vị trí
+            </button>
+        </div>
+    </div>
+    <div style="padding:16px">
+        <div id="admin-map"></div>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="table-card animate-up">
+    <div class="table-header">
+        <div class="table-title">Danh sách trạm ({{ stations|length }})</div>
+        <div class="table-search">
+            <input type="text" class="search-input" id="station-search" placeholder="🔍 Tìm trạm...">
+        </div>
+    </div>
+    <table id="station-table">
+        <thead>
+            <tr>
+                <th>Mã trạm</th><th>Tên trạm</th><th>Loại</th><th>Quận/Huyện</th>
+                <th>Tọa độ</th><th>Trạng thái</th><th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in stations %}
+            <tr data-search="{{ s.name }} {{ s.station_code }} {{ s.district }}">
+                <td><code style="font-size:12px;background:rgba(0,180,216,0.08);padding:2px 8px;border-radius:6px;color:var(--primary-dark)">{{ s.station_code }}</code></td>
+                <td style="font-weight:600;font-size:13px">{{ s.name }}</td>
+                <td>
+                    {% if s.station_type == 'air' %}<span class="badge badge-air">💨 Không khí</span>
+                    {% elif s.station_type == 'water' %}<span class="badge badge-water">💧 Nước</span>
+                    {% else %}<span class="badge badge-weather">🌤️ Khí tượng</span>{% endif %}
+                </td>
+                <td style="font-size:13px">{{ s.district }}</td>
+                <td style="font-size:11px;color:var(--text-muted);font-family:monospace">{{ s.latitude|floatformat:4 }}, {{ s.longitude|floatformat:4 }}</td>
+                <td>
+                    {% if s.status == 'active' %}<span class="badge badge-active">● Hoạt động</span>
+                    {% elif s.status == 'maintenance' %}<span class="badge badge-maintenance">● Bảo trì</span>
+                    {% else %}<span class="badge badge-inactive">● Ngừng</span>{% endif %}
+                </td>
+                <td>
+                    <div style="display:flex;gap:6px">
+                        <button class="btn btn-ghost btn-sm" onclick="openEditModal({{ s.id }}, '{{ s.name }}', '{{ s.station_code }}', '{{ s.station_type }}', '{{ s.district }}', '{{ s.address }}', {{ s.latitude }}, {{ s.longitude }}, '{{ s.status }}')">✏️ Sửa</button>
+                        <button class="btn btn-danger btn-sm" onclick="confirmDelete('{% url 'admin_station_delete' s.id %}', '{{ s.name }}')">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📡</div><p>Chưa có trạm quan trắc nào</p></div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Thêm trạm -->
+<div class="modal-overlay" id="modal-create">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">➕ Thêm trạm quan trắc</div>
+            <button class="modal-close" onclick="closeModal('modal-create')">×</button>
+        </div>
+        <div class="modal-body">
+            <form method="POST" action="{% url 'admin_station_create' %}">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tên trạm *</label>
+                        <input type="text" name="name" id="create-name" class="form-control" required placeholder="vd: Trạm Quận 1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mã trạm *</label>
+                        <input type="text" name="station_code" class="form-control" required placeholder="vd: AQI-Q1-001">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Loại trạm</label>
+                        <select name="station_type" class="form-control">
+                            <option value="air">💨 Không khí</option>
+                            <option value="water">💧 Nước</option>
+                            <option value="weather">🌤️ Khí tượng</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Quận/Huyện</label>
+                        <input type="text" name="district" id="create-district" class="form-control" placeholder="vd: Quận 1">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Địa chỉ
+                        <span style="color:var(--primary);font-size:10px;text-transform:none;font-weight:400;margin-left:6px">
+                            ✨ gõ địa chỉ → tự động điền tọa độ
+                        </span>
+                    </label>
+                    <div class="address-wrapper">
+                        <input type="text" name="address" id="create-address" class="form-control"
+                               placeholder="vd: 123 Nguyễn Huệ, Quận 1, TP.HCM" autocomplete="off">
+                        <div class="address-suggestions" id="create-suggestions"></div>
+                    </div>
+                    <div class="geocode-status" id="create-geocode-status"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Vĩ độ (Latitude) *</label>
+                        <input type="number" name="latitude" id="create-lat" class="form-control" step="any" required placeholder="10.7769">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Kinh độ (Longitude) *</label>
+                        <input type="number" name="longitude" id="create-lng" class="form-control" step="any" required placeholder="106.7009">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Trạng thái</label>
+                    <select name="status" class="form-control">
+                        <option value="active">● Hoạt động</option>
+                        <option value="maintenance">● Bảo trì</option>
+                        <option value="inactive">● Ngừng hoạt động</option>
+                    </select>
+                </div>
+                <div class="form-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('modal-create')">Hủy</button>
+                    <button type="submit" class="btn btn-primary">✅ Thêm trạm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa trạm -->
+<div class="modal-overlay" id="modal-edit">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title">✏️ Chỉnh sửa trạm</div>
+            <button class="modal-close" onclick="closeModal('modal-edit')">×</button>
+        </div>
+        <div class="modal-body">
+            <form method="POST" id="edit-station-form">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tên trạm *</label>
+                        <input type="text" name="name" id="edit-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mã trạm *</label>
+                        <input type="text" name="station_code" id="edit-code" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Loại trạm</label>
+                        <select name="station_type" id="edit-type" class="form-control">
+                            <option value="air">💨 Không khí</option>
+                            <option value="water">💧 Nước</option>
+                            <option value="weather">🌤️ Khí tượng</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Quận/Huyện</label>
+                        <input type="text" name="district" id="edit-district" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        Địa chỉ
+                        <span style="color:var(--primary);font-size:10px;text-transform:none;font-weight:400;margin-left:6px">
+                            ✨ gõ địa chỉ → tự động điền tọa độ
+                        </span>
+                    </label>
+                    <div class="address-wrapper">
+                        <input type="text" name="address" id="edit-address" class="form-control" autocomplete="off">
+                        <div class="address-suggestions" id="edit-suggestions"></div>
+                    </div>
+                    <div class="geocode-status" id="edit-geocode-status"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Vĩ độ *</label>
+                        <input type="number" name="latitude" id="edit-lat" class="form-control" step="any" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Kinh độ *</label>
+                        <input type="number" name="longitude" id="edit-lng" class="form-control" step="any" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Trạng thái</label>
+                    <select name="status" id="edit-status" class="form-control">
+                        <option value="active">● Hoạt động</option>
+                        <option value="maintenance">● Bảo trì</option>
+                        <option value="inactive">● Ngừng hoạt động</option>
+                    </select>
+                </div>
+                <div class="form-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('modal-edit')">Hủy</button>
+                    <button type="submit" class="btn btn-primary">💾 Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal xóa -->
+<div class="modal-overlay" id="modal-delete">
+    <div class="modal" style="max-width:380px">
+        <div class="modal-header">
+            <div class="modal-title">🗑️ Xác nhận xóa</div>
+            <button class="modal-close" onclick="closeModal('modal-delete')">×</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size:14px;color:var(--text-muted);margin-bottom:20px">
+                Bạn có chắc muốn xóa trạm <strong id="delete-name"></strong>?
+            </p>
+            <div class="form-footer">
+                <button class="btn btn-ghost" onclick="closeModal('modal-delete')">Hủy</button>
+                <form id="delete-form" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">🗑️ Xóa trạm</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Modal ──────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function openEditModal(id, name, code, type, district, address, lat, lng, status) {
+    document.getElementById('edit-station-form').action = `/admin-panel/stations/${id}/edit/`;
+    document.getElementById('edit-name').value     = name;
+    document.getElementById('edit-code').value     = code;
+    document.getElementById('edit-type').value     = type;
+    document.getElementById('edit-district').value = district;
+    document.getElementById('edit-address').value  = address;
+    document.getElementById('edit-lat').value      = lat;
+    document.getElementById('edit-lng').value      = lng;
+    document.getElementById('edit-status').value   = status;
+    document.getElementById('edit-geocode-status').className = 'geocode-status';
+    openModal('modal-edit');
+}
+
+function confirmDelete(url, name) {
+    document.getElementById('delete-name').textContent = name;
+    document.getElementById('delete-form').action = url;
+    openModal('modal-delete');
+}
+
+// ── Search table ───────────────────────────────────────────────
+document.getElementById('station-search').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#station-table tbody tr').forEach(row => {
+        row.style.display = (row.dataset.search||'').toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+
+// ── Geocoding với Nominatim ────────────────────────────────────
+function setupGeocoding(addressInputId, suggestionsId, latInputId, lngInputId, statusId) {
+    const addressInput = document.getElementById(addressInputId);
+    const suggestions  = document.getElementById(suggestionsId);
+    const latInput     = document.getElementById(latInputId);
+    const lngInput     = document.getElementById(lngInputId);
+    const status       = document.getElementById(statusId);
+    let timer = null;
+
+    addressInput.addEventListener('input', function() {
+        const query = this.value.trim();
+        clearTimeout(timer);
+        suggestions.classList.remove('show');
+        suggestions.innerHTML = '';
+
+        if (query.length < 5) {
+            status.className = 'geocode-status';
+            return;
+        }
+
+        timer = setTimeout(() => {
+            status.className = 'geocode-status loading';
+            status.textContent = '🔍 Đang tìm kiếm...';
+
+            const url = `https://nominatim.openstreetmap.org/search?` +
+                `q=${encodeURIComponent(query + ', Việt Nam')}&` +
+                `format=json&limit=5&countrycodes=vn`;
+
+            fetch(url, { headers: { 'Accept-Language': 'vi' } })
+                .then(r => r.json())
+                .then(results => {
+                    status.className = 'geocode-status';
+                    suggestions.innerHTML = '';
+
+                    if (!results.length) {
+                        status.className = 'geocode-status error';
+                        status.textContent = '❌ Không tìm thấy, thử gõ rõ hơn hoặc nhập tọa độ thủ công';
+                        return;
+                    }
+
+                    results.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'suggestion-item';
+                        const parts = item.display_name.split(',');
+                        const short = parts.slice(0, 3).join(',');
+                        div.innerHTML = `${short}<small>${item.display_name}</small>`;
+                        div.addEventListener('mousedown', (e) => {
+                            e.preventDefault();
+                            addressInput.value = parts.slice(0, 4).join(',').trim();
+                            latInput.value     = parseFloat(item.lat).toFixed(6);
+                            lngInput.value     = parseFloat(item.lon).toFixed(6);
+                            suggestions.classList.remove('show');
+                            status.className   = 'geocode-status success';
+                            status.textContent = `✅ Tọa độ: ${latInput.value}, ${lngInput.value}`;
+                        });
+                        suggestions.appendChild(div);
+                    });
+
+                    suggestions.classList.add('show');
+                })
+                .catch(() => {
+                    status.className = 'geocode-status error';
+                    status.textContent = '❌ Lỗi kết nối, nhập tọa độ thủ công';
+                });
+        }, 600);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!addressInput.contains(e.target) && !suggestions.contains(e.target)) {
+            suggestions.classList.remove('show');
+        }
+    });
+}
+
+setupGeocoding('create-address', 'create-suggestions', 'create-lat', 'create-lng', 'create-geocode-status');
+setupGeocoding('edit-address',   'edit-suggestions',   'edit-lat',   'edit-lng',   'edit-geocode-status');
+
+// ── Leaflet Map ────────────────────────────────────────────────
+const map = L.map('admin-map').setView([10.7769, 106.7009], 11);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO'
+}).addTo(map);
+
+const icons = {
+    air:     L.divIcon({className:'',html:'<div style="background:#00CFFF;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(0,207,255,0.6)"></div>',iconSize:[14,14]}),
+    water:   L.divIcon({className:'',html:'<div style="background:#0077B6;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(0,119,182,0.6)"></div>',iconSize:[14,14]}),
+    weather: L.divIcon({className:'',html:'<div style="background:#FFD60A;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(255,214,10,0.6)"></div>',iconSize:[14,14]}),
+};
+
+fetch('/api/admin/stations/').then(r=>r.json()).then(d=>{
+    d.stations.forEach(s=>{
+        L.marker([s.latitude, s.longitude], {icon: icons[s.station_type]||icons.air})
+            .addTo(map)
+            .bindPopup(`<b>${s.name}</b><br><small>${s.station_code} · ${s.district}</small><br><span style="color:${s.status==='active'?'#06D6A0':'#EF233C'}">${s.status}</span>`);
+    });
+}).catch(()=>{});
+
+// ── Pin Mode ───────────────────────────────────────────────────
+let pinModeActive = false;
+let tempMarker = null;
+
+function togglePinMode() {
+    pinModeActive = !pinModeActive;
+    const btn  = document.getElementById('btn-pin-map');
+    const hint = document.getElementById('pin-hint');
+
+    if (pinModeActive) {
+        btn.classList.add('active');
+        btn.textContent = '✖ Thoát ghim';
+        hint.textContent = '🖱️ Click vào bản đồ để chọn vị trí đặt trạm';
+        hint.style.color = 'var(--primary)';
+        map.getContainer().style.cursor = 'crosshair';
+    } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '📌 Ghim vị trí';
+        hint.textContent = 'Click marker để xem chi tiết';
+        hint.style.color = '';
+        map.getContainer().style.cursor = '';
+        if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+    }
+}
+
+map.on('click', async function(e) {
+    if (!pinModeActive) return;
+
+    const { lat, lng } = e.latlng;
+
+    // Xoá marker tạm cũ
+    if (tempMarker) map.removeLayer(tempMarker);
+
+    // Marker tạm với animation pulse
+    tempMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: '',
+            html: `<div style="
+                width:18px;height:18px;
+                background:#00B4D8;
+                border-radius:50%;
+                border:3px solid #fff;
+                box-shadow:0 0 0 5px rgba(0,180,216,0.3);
+                animation:pulse-pin 1.2s infinite;
+            "></div>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+        })
+    }).addTo(map);
+
+    // Popup confirm
+    L.popup({ closeButton: false, className: 'pin-confirm-popup', offset: [0, -6] })
+        .setLatLng([lat, lng])
+        .setContent(`
+            <div style="text-align:center;padding:4px 2px;font-family:'Inter',sans-serif;min-width:200px">
+                <div style="font-weight:600;font-size:13px;margin-bottom:4px;color:#0f172a">
+                    📍 Thêm trạm ở đây?
+                </div>
+                <div style="font-size:11px;color:#94a3b8;margin-bottom:12px;font-family:monospace">
+                    ${lat.toFixed(5)}, ${lng.toFixed(5)}
+                </div>
+                <div style="display:flex;gap:8px;justify-content:center">
+                    <button id="pin-ok" style="
+                        background:#00B4D8;color:#fff;
+                        border:none;border-radius:8px;
+                        padding:6px 16px;font-size:12px;
+                        cursor:pointer;font-weight:600;
+                        font-family:'Inter',sans-serif;
+                        transition:opacity 0.15s;
+                    " onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">
+                        ✅ Thêm trạm
+                    </button>
+                    <button id="pin-cancel" style="
+                        background:#f1f5f9;color:#64748b;
+                        border:none;border-radius:8px;
+                        padding:6px 16px;font-size:12px;
+                        cursor:pointer;
+                        font-family:'Inter',sans-serif;
+                    ">
+                        Huỷ
+                    </button>
+                </div>
+            </div>
+        `)
+        .openOn(map);
+
+    // Gắn sự kiện sau khi popup render
+    setTimeout(() => {
+        document.getElementById('pin-ok')?.addEventListener('click', async () => {
+            map.closePopup();
+            togglePinMode(); // tắt pin mode, reset nút
+
+            // Reverse geocode bằng Nominatim
+            let address = '';
+            let district = '';
+            const statusEl = document.getElementById('create-geocode-status');
+            statusEl.className = 'geocode-status loading';
+            statusEl.textContent = '🔍 Đang lấy địa chỉ...';
+
+            try {
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`
+                );
+                const data = await res.json();
+                const parts = (data.display_name || '').split(',');
+                address = parts.slice(0, 4).join(',').trim();
+
+                // Thử lấy district từ nhiều field khác nhau
+                district = data.address?.suburb
+                        || data.address?.city_district
+                        || data.address?.quarter
+                        || data.address?.county
+                        || '';
+
+                statusEl.className = 'geocode-status success';
+                statusEl.textContent = `✅ Đã lấy tọa độ từ bản đồ: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            } catch (_) {
+                statusEl.className = 'geocode-status error';
+                statusEl.textContent = '⚠️ Không lấy được địa chỉ, bạn có thể điền thủ công';
+            }
+
+            // Điền vào form modal-create
+            document.getElementById('create-lat').value      = lat.toFixed(6);
+            document.getElementById('create-lng').value      = lng.toFixed(6);
+            document.getElementById('create-address').value  = address;
+            document.getElementById('create-district').value = district;
+
+            // Mở modal, focus vào ô tên trạm
+            openModal('modal-create');
+            setTimeout(() => {
+                document.getElementById('create-name')?.focus();
+            }, 300);
+        });
+
+        document.getElementById('pin-cancel')?.addEventListener('click', () => {
+            map.closePopup();
+            if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+            togglePinMode();
+        });
+    }, 50);
+});
+</script>
+{% endblock %}

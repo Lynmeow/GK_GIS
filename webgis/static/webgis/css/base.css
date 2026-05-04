@@ -1,0 +1,336 @@
+    /* =============================================
+    BASE.CSS — WebGIS Môi Trường TP.HCM
+    Palette: Sky Blue + Neon Mint + Light Tone
+    ============================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
+    /* ── CSS Variables ── */
+    :root {
+    /* Primary Palette */
+    --primary:        #00B4D8;
+    --primary-dark:   #0077B6;
+    --primary-light:  #90E0EF;
+    --primary-pale:   #CAF0F8;
+
+    /* Neon Accents */
+    --neon-mint:      #00F5D4;
+    --neon-cyan:      #00CFFF;
+    --neon-glow:      rgba(0, 245, 212, 0.35);
+    --neon-glow-blue: rgba(0, 180, 216, 0.3);
+
+    /* Background */
+    --bg-main:        #F0F9FF;
+    --bg-card:        #FFFFFF;
+    --bg-card-2:      #E8F4FD;
+    --bg-overlay:     rgba(0, 119, 182, 0.06);
+
+    /* Dark Tones */
+    --dark-navy:      #03045E;
+    --dark-mid:       #023E8A;
+    --dark-soft:      #0353A4;
+
+    /* Text */
+    --text-primary:   #03045E;
+    --text-secondary: #0353A4;
+    --text-muted:     #5A8DB8;
+    --text-light:     #90B8D4;
+
+    /* Semantic */
+    --success:        #06D6A0;
+    --warning:        #FFD60A;
+    --danger:         #EF233C;
+
+    /* UI */
+    --border:         rgba(0, 180, 216, 0.2);
+    --border-strong:  rgba(0, 180, 216, 0.5);
+    --shadow-sm:      0 2px 8px rgba(3, 4, 94, 0.08);
+    --shadow-md:      0 8px 24px rgba(3, 4, 94, 0.12);
+    --shadow-lg:      0 20px 48px rgba(3, 4, 94, 0.16);
+    --shadow-neon:    0 0 20px rgba(0, 245, 212, 0.4), 0 0 40px rgba(0, 245, 212, 0.2);
+    --shadow-blue:    0 0 20px rgba(0, 180, 216, 0.4);
+
+    /* Typography — tất cả dùng Inter */
+    --font-display:   'Inter', sans-serif;
+    --font-body:      'Inter', sans-serif;
+
+    /* Spacing */
+    --radius-sm:      8px;
+    --radius-md:      14px;
+    --radius-lg:      20px;
+    --radius-xl:      28px;
+    --radius-full:    999px;
+
+    /* Transitions */
+    --transition:      all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    }
+
+    html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    background: var(--bg-main);
+    line-height: 1.6;
+    min-height: 100vh;
+    }
+
+    a {
+    color: var(--primary);
+    text-decoration: none;
+    transition: var(--transition);
+    }
+    a:hover { color: var(--primary-dark); }
+
+    img, svg { display: block; max-width: 100%; }
+
+    button {
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    border: none;
+    outline: none;
+    }
+
+    input, textarea, select {
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    }
+
+    /* ── Utility Classes ── */
+    .text-display         { font-family: 'Inter', sans-serif; font-weight: 700; }
+    .text-primary-color   { color: var(--primary); }
+    .text-neon            { color: var(--neon-mint); }
+    .text-muted           { color: var(--text-muted); }
+
+    .neon-text {
+    color: var(--neon-mint);
+    text-shadow: 0 0 10px var(--neon-mint), 0 0 20px rgba(0,245,212,0.5);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-main); }
+    ::-webkit-scrollbar-thumb {
+    background: var(--primary-light);
+    border-radius: var(--radius-full);
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+    /* ── Selection ── */
+    ::selection {
+    background: var(--primary-pale);
+    color: var(--dark-navy);
+    }
+
+    /* ── Animated Background Dots ── */
+    .bg-dots {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: radial-gradient(circle, rgba(0,180,216,0.12) 1px, transparent 1px);
+    background-size: 32px 32px;
+    }
+
+    /* ── Floating orbs ── */
+    .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+    animation: orbFloat 8s ease-in-out infinite;
+    }
+
+    .orb-1 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(0,245,212,0.25), transparent 70%);
+    top: -100px; right: -80px;
+    animation-delay: 0s;
+    }
+
+    .orb-2 {
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(0,180,216,0.2), transparent 70%);
+    bottom: 80px; left: -60px;
+    animation-delay: -4s;
+    }
+
+    @keyframes orbFloat {
+    0%, 100% { transform: translateY(0px) scale(1); }
+    50%       { transform: translateY(-30px) scale(1.05); }
+    }
+
+    /* ── Glass Card ── */
+    .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    }
+
+    /* ── Neon Button ── */
+    .btn-neon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 32px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.3px;
+    color: var(--dark-navy);
+    background: var(--neon-mint);
+    border-radius: var(--radius-full);
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 0 16px rgba(0,245,212,0.5);
+    position: relative;
+    overflow: hidden;
+    }
+
+    .btn-neon::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.3), transparent);
+    opacity: 0;
+    transition: var(--transition);
+    }
+
+    .btn-neon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 28px rgba(0,245,212,0.7), 0 8px 24px rgba(0,245,212,0.3);
+    color: var(--dark-navy);
+    }
+    .btn-neon:hover::before { opacity: 1; }
+    .btn-neon:active { transform: translateY(0); }
+
+    /* ── Primary Button ── */
+    .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 32px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border-radius: var(--radius-full);
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 4px 16px rgba(0,180,216,0.4);
+    }
+
+    .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0,180,216,0.5);
+    color: #fff;
+    }
+
+    /* ── Input Field ── */
+    .input-field {
+    width: 100%;
+    padding: 13px 18px;
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+    color: var(--text-primary);
+    background: var(--bg-main);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+    }
+
+    .input-field:focus {
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(0,180,216,0.12);
+    }
+
+    .input-field::placeholder { color: var(--text-light); }
+
+    /* ── Alert ── */
+    .alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    }
+
+    .alert-error {
+    background: rgba(239,35,60,0.08);
+    color: var(--danger);
+    border: 1px solid rgba(239,35,60,0.2);
+    }
+
+    .alert-success {
+    background: rgba(6,214,160,0.08);
+    color: var(--success);
+    border: 1px solid rgba(6,214,160,0.2);
+    }
+
+    /* ── Badge ── */
+    .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    }
+
+    .badge-primary {
+    background: rgba(0,180,216,0.12);
+    color: var(--primary-dark);
+    border: 1px solid rgba(0,180,216,0.3);
+    }
+
+    .badge-neon {
+    background: rgba(0,245,212,0.15);
+    color: #00a896;
+    border: 1px solid rgba(0,245,212,0.4);
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+    }
+
+    @keyframes pulse-neon {
+    0%, 100% { box-shadow: 0 0 8px rgba(0,245,212,0.4); }
+    50%       { box-shadow: 0 0 20px rgba(0,245,212,0.8), 0 0 40px rgba(0,245,212,0.3); }
+    }
+
+    .animate-fade-up { animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    .animate-fade-up-delay-1 { animation-delay: 0.1s; opacity: 0; animation-fill-mode: forwards; animation-name: fadeInUp; animation-duration: 0.6s; }
+    .animate-fade-up-delay-2 { animation-delay: 0.2s; opacity: 0; animation-fill-mode: forwards; animation-name: fadeInUp; animation-duration: 0.6s; }
+    .animate-fade-up-delay-3 { animation-delay: 0.3s; opacity: 0; animation-fill-mode: forwards; animation-name: fadeInUp; animation-duration: 0.6s; }
+    .animate-fade-up-delay-4 { animation-delay: 0.4s; opacity: 0; animation-fill-mode: forwards; animation-name: fadeInUp; animation-duration: 0.6s; }
